@@ -43,3 +43,8 @@ test("Google adapter extracts candidate text and usage metadata", async()=>{
  assert.equal(new URL(target).pathname,"/v1beta/models/gpt-test:generateContent");assert.equal(new URL(target).searchParams.get("key"),"test-api-key-123");
  assert.equal(result.text,"google answer");assert.equal(result.usage.inputTokens,9);assert.equal(result.usage.outputTokens,5);
 });
+
+test("secret resolver failures are sanitized",async()=>{
+ const broken:SecretResolver={resolve:async()=>{throw new Error("vault internal secret path and credential details");}};
+ await assert.rejects(()=>new AgentProviderExecutor(broken).execute(config,{}),(error:unknown)=>error instanceof ProviderExecutionError&&error.code==="PROVIDER_SECRET_UNAVAILABLE"&&!error.message.includes("vault internal"));
+});
