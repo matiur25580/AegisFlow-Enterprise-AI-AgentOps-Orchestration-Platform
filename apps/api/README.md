@@ -39,7 +39,7 @@ Agent creation body:
   "tags": ["finance", "document-ai"],
   "provider": "openai",
   "model": "gpt-4.1",
-  "secretRef": "vault:production/openai/invoice-agent",
+  "secretRef": "aegisflow:primary-openai",
   "version": {
     "changelog": "Initial production candidate",
     "systemPrompt": "Extract invoice fields and return valid JSON.",
@@ -52,7 +52,7 @@ Agent creation body:
 }
 ```
 
-Never send raw API keys or credentials to the registry. `secretRef` accepts a reference URI for a future secrets-manager adapter; this milestone does not resolve or retrieve secrets. Version snapshots are immutable at the Mongoose schema level. Promotion changes only the agent's active-version pointer and lifecycle state, so rollback is a promotion of a prior version rather than an edit.
+Never send raw API keys or credentials to the agent registry. Store them through the encrypted tenant secrets API (`POST /secrets`) and set the returned `aegisflow:<slug>` reference on the agent. The API encrypts values using AES-256-GCM and returns metadata only. Version snapshots are immutable at the Mongoose schema level. Promotion changes only the agent's active-version pointer and lifecycle state, so rollback is a promotion of a prior version rather than an edit.
 
 Every registry query filters by the authenticated tenant. Agent and version creation, promotion, deprecation and archival write tenant-scoped audit events. Archived agents cannot be promoted or versioned; lifecycle changes are intentionally one-way from archived.
 
@@ -91,7 +91,7 @@ Graph validation enforces exactly one start node, at least one end node, unique 
 
 Workflow versions are append-only snapshots with a SHA-256 graph hash and Mongoose immutable fields. Promotion updates the active-version pointer and publishes the workflow; promoting an earlier version provides the rollback mechanism. All workflow and version reads/writes filter by the authenticated tenant ID from server-side auth context. Workflow lifecycle and version events are written to the tenant audit log. Secret values must never be placed in workflow configuration; use secret-reference URIs only.
 
-The workflow API and graph-validation foundation is paired with a React workflow studio and a durable MongoDB-backed execution runtime. The runtime pins immutable graph snapshots, queues idempotent runs, checkpoints node traces, uses expiring worker leases, supports cooperative cancellation and manual retry, and evaluates only literal boolean conditions. Agent provider execution remains disabled until a provider adapter and secrets-manager integration are configured. Human approval nodes are supported by the approval runtime documented below. See [Workflow execution runtime](../../docs/workflow-execution-runtime.md) for API and operational details. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
+The workflow API and graph-validation foundation is paired with a React workflow studio and a durable MongoDB-backed execution runtime. The runtime pins immutable workflow and active agent-version snapshots, queues idempotent runs, checkpoints node traces, uses renewable worker leases, supports cooperative cancellation and manual retry, and evaluates only literal boolean conditions. Agent nodes now execute through the OpenAI, Anthropic and Google adapters using tenant-scoped encrypted secret references. Human approval nodes are supported by the approval runtime documented below. See [Workflow execution runtime](../../docs/workflow-execution-runtime.md) and [AI provider execution and secrets vault](../../docs/ai-provider-adapter-foundation.md) for API and operational details. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
 
 ## Role baseline
 
@@ -154,8 +154,4 @@ The deterministic scoring modes are `exact_match` (structural JSON equality) and
 
 ## AI provider adapter foundation
 
-The API contains provider-independent HTTP adapters for OpenAI Chat Completions, Anthropic Messages, and Google Gemini. The adapters return normalized response text, elapsed time, and provider-reported token usage.
-
-Credentials are resolved only through the injected tenant-aware `SecretResolver` contract. No built-in environment fallback is provided. Live provider execution remains disabled in the workflow worker until a real secrets-manager implementation is composed into the worker and agent versions are pinned into execution snapshots.
-
-See [AI provider adapter foundation](../../docs/ai-provider-adapter-foundation.md) for supported providers, error behavior, and the integration boundary.
+The API exposes a tenant-scoped encrypted secret vault and provider adapters for OpenAI, Anthropic and Google Gemini. Store credentials through `POST /secrets`, configure `SECRETS_ENCRYPTION_KEY` (64 hex characters representing 32 random bytes), and assign the returned `aegisflow:<slug>` reference to an agent. Runs pin active agent versions, invoke the provider adapter in the durable worker, and persist provider-reported token usage and latency on each node step. Run APIs omit private agent snapshots. See [AI provider execution and secrets vault](../../docs/ai-provider-adapter-foundation.md) for setup, security boundaries and limitations.
