@@ -12,7 +12,7 @@ test("OpenAI adapter sends bounded request and returns usage without exposing cr
  const result=await new AgentProviderExecutor(resolver,fakeFetch).execute(config,{question:"hi"});
  assert.equal(result.text,"hello");assert.equal(result.usage.inputTokens,10);assert.equal(result.usage.outputTokens,4);
  assert.equal(captured.value?.url,"https://api.openai.com/v1/chat/completions");
- assert.equal(new Headers(captured?.init.headers).get("authorization"),"Bearer test-api-key-123");
+ assert.equal(new Headers(captured.value?.init.headers).get("authorization"),"Bearer test-api-key-123");
 });
 
 test("missing secret reference fails closed before making a request",async()=>{
