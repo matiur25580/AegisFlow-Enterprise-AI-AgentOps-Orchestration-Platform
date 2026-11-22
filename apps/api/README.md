@@ -156,3 +156,27 @@ The deterministic scoring modes are `exact_match` (structural JSON equality) and
 ## AI provider adapter foundation
 
 The API exposes a tenant-scoped encrypted secret vault and provider adapters for OpenAI, Anthropic and Google Gemini. Store credentials through `POST /secrets`, configure `SECRETS_ENCRYPTION_KEY` (64 hex characters representing 32 random bytes), and assign the returned `aegisflow:<slug>` reference to an agent. Runs pin active agent versions, invoke the provider adapter in the durable worker, and persist provider-reported token usage and latency on each node step. Run APIs omit private agent snapshots. See [AI provider execution and secrets vault](../../docs/ai-provider-adapter-foundation.md) for setup, security boundaries and limitations.
+
+
+## AI cost intelligence foundation
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/costs/pricing` | `costs:read` | Read the workspace's configured provider/model token rates |
+| PUT | `/costs/pricing` | `costs:manage` | Create or update a tenant-owned model rate |
+| GET | `/costs/overview?range=30d` | `costs:read` | Estimate token spend and pricing coverage for 24h, 7d or 30d |
+
+Pricing body:
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4.1",
+  "inputUsdPerMillionTokens": 2,
+  "outputUsdPerMillionTokens": 8,
+  "effectiveFrom": "2026-11-22T00:00:00.000Z",
+  "source": "Reviewed provider pricing page, checked 2026-11-22"
+}
+```
+
+Rates are tenant-configured USD per one million input/output tokens. AegisFlow does not hardcode provider prices or silently assume a rate for unknown models. The overview calculates estimates from provider-reported usage and the currently configured rate card, reports unpriced steps and pricing coverage, and is capped at 5,000 runs. Updating a rate changes estimates for the selected historical window because historical rate snapshots are not yet retained. These are operational estimates, not invoices; cached-token discounts, provider-specific surcharges, taxes, currency conversion, budgets/alerts and billing-grade reconciliation remain future work. Owners and admins can manage rates; viewers can read cost summaries; operators currently have no cost permissions.
