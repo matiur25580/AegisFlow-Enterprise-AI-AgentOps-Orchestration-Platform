@@ -9,6 +9,9 @@ import { WorkflowVersion } from "../models/workflow-version.model.js";
 import { Agent } from "../models/agent.model.js";
 import { AgentVersion } from "../models/agent-version.model.js";
 import { ExecutionRun } from "../models/execution-run.model.js";
+import { BudgetPolicy } from "../models/budget-policy.model.js";
+import { getTenantBudgetUsage } from "../costs/budget-usage.js";
+import { findBlockingBudgets } from "../costs/budget-governance.js";
 import { writeAuditEvent } from "../auth/audit.js";
 import type { AuthContext } from "../auth/types.js";
 
@@ -57,6 +60,22 @@ runsRouter.post("/workflows/:workflowId/runs", requirePermission("runs:operate")
   const idempotencyKey = suppliedKey ? keySchema.parse(suppliedKey) : randomUUID();
   const existing = await ExecutionRun.findOne({ tenantId: auth.tenantId, workflowId, idempotencyKey }).select("-agentSnapshots").lean();
   if (existing) { res.status(200).json({ data: existing, idempotentReplay: true }); return; }
+  const hardPolicies = await BudgetPolicy.find({ tenantId: auth.tenantId, enabled: true, enforcement: "hard" })
+    .select("scopeType scopeValue monthlyLimitUsd enforcement enabled").lean();
+  if (hardPolicies.length) {
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const usage = await getTenantBudgetUsage(auth.tenantId, monthStart);
+    if (usage.sampled) {
+      res.status(503).json({ error: { code: "BUDGET_USAGE_INCOMPLETE", message: "Hard budget admission is paused because monthly usage exceeds the reliable 5,000-run accounting window." } });
+      return;
+    }
+    const blocked = findBlockingBudgets(hardPolicies, usage.totals, agentSnapshots as Array<{ agentId?: string; provider?: string; model?: string }>);
+    if (blocked.length) {
+      res.status(429).json({ error: { code: "BUDGET_LIMIT_REACHED", message: "This workflow cannot be queued because an applicable hard monthly budget has been reached.", details: blocked.map(policy => ({ scopeType: policy.scopeType, scopeValue: policy.scopeValue, monthlyLimitUsd: policy.monthlyLimitUsd })) } });
+      return;
+    }
+  }
   const run = await ExecutionRun.create({
     tenantId: auth.tenantId, workflowId, workflowVersion: version.version, graphHash: version.graphHash,
     nodes: version.nodes, edges: version.edges, agentSnapshots, status: "queued", idempotencyKey, requestedBy: auth.userId, nextAttemptAt: new Date()
