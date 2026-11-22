@@ -12,7 +12,7 @@ import type { AuthContext } from "../auth/types.js";
 export const approvalsRouter = Router();
 approvalsRouter.use(authenticate);
 
-const idSchema = z.string().regex(/^[a-f\\d]{24}$/i);
+const idSchema = z.string().regex(/^[a-f\d]{24}$/i);
 const decisionSchema = z.object({
   decision: z.enum(["approve", "reject"]),
   comment: z.string().trim().max(2000).optional().default("")
