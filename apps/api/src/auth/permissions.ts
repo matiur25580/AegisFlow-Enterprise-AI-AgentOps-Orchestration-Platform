@@ -17,7 +17,9 @@ export const permissions = [
   "billing:read",
   "evaluations:read",
   "evaluations:write",
-  "evaluations:run"
+  "evaluations:run",
+  "secrets:read",
+  "secrets:manage"
 ] as const;
 
 export type Permission = typeof permissions[number];
