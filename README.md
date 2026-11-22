@@ -162,3 +162,10 @@ GitHub Actions includes platform CI, CodeQL, secret scanning and dependency audi
 ## 11. Responsible claims
 
 AegisFlow is an actively developed AgentOps portfolio project. Illustrative dashboard modules are not proof of deployed capability. Evaluation scores are quality signals, not guarantees of safe behavior. Production use requires workload-specific threat modelling, human oversight, runtime isolation, monitoring and incident response.
+
+## Security and contribution guidance
+
+- [Security policy](SECURITY.md) — responsible vulnerability reporting and project security expectations.
+- [Contributing guide](CONTRIBUTING.md) — engineering standards and pull request expectations.
+
+These documents describe intended safeguards and contribution practices; they do not imply that planned product controls are already implemented or independently verified.
