@@ -81,9 +81,10 @@ export function validateWorkflowGraph(nodes: WorkflowNodeInput[], edges: Workflo
     indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
   }
 
-  if (starts.length === 1) {
+  const startNode = starts.length === 1 ? starts[0] : undefined;
+  if (startNode) {
     const visited = new Set<string>();
-    const stack = [starts[0].id];
+    const stack = [startNode.id];
     while (stack.length) {
       const current = stack.pop()!;
       if (visited.has(current)) continue;
