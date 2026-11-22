@@ -77,7 +77,7 @@ Example graph payload (the same `graph` object is accepted by workflow creation 
   "changelog": "Initial workflow",
   "nodes": [
     { "id": "start", "type": "start", "label": "Start", "position": { "x": 80, "y": 120 }, "config": {} },
-    { "id": "agent-step", "type": "agent", "label": "Extract invoice", "position": { "x": 320, "y": 120 }, "config": { "agentId": "0123456789abcdef01234567", "secretRef": "vault:production/invoice-agent" } },
+    { "id": "agent-step", "type": "agent", "label": "Extract invoice", "position": { "x": 320, "y": 120 }, "config": { "agentId": "0123456789abcdef01234567" } },
     { "id": "finish", "type": "end", "label": "Complete", "position": { "x": 560, "y": 120 }, "config": {} }
   ],
   "edges": [
