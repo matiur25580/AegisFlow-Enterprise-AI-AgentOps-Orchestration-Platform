@@ -38,9 +38,9 @@ test("Anthropic adapter extracts text and token usage", async()=>{
 
 test("Google adapter extracts candidate text and usage metadata", async()=>{
  let target="";
- const fakeFetch:typeof fetch=async(url)=>{target=String(url);return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"google answer"}]}}],usageMetadata:{promptTokenCount:9,candidatesTokenCount:5}}),{status:200});};
+ const fakeFetch:typeof fetch=async(url,init)=>{target=String(url);assert.equal(new Headers(init?.headers).get("x-goog-api-key"),"test-api-key-123");return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"google answer"}]}}],usageMetadata:{promptTokenCount:9,candidatesTokenCount:5}}),{status:200});};
  const result=await new AgentProviderExecutor(resolver,fakeFetch).execute({...config,provider:"google"}, {question:"hi"});
- assert.equal(new URL(target).pathname,"/v1beta/models/gpt-test:generateContent");assert.equal(new URL(target).searchParams.get("key"),"test-api-key-123");
+ assert.equal(new URL(target).pathname,"/v1beta/models/gpt-test:generateContent");
  assert.equal(result.text,"google answer");assert.equal(result.usage.inputTokens,9);assert.equal(result.usage.outputTokens,5);
 });
 
