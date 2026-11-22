@@ -1,6 +1,6 @@
-# AI cost intelligence foundation
+# AI cost intelligence and budget governance
 
-AegisFlow records provider-reported input/output token counts on agent execution steps. This milestone adds a tenant-owned model rate card and transparent estimated-spend aggregation.
+AegisFlow records provider-reported input/output token counts on agent execution steps. The cost foundation adds tenant-owned model rates and transparent estimated-spend aggregation. Budget governance adds tenant, model and agent monthly policy scopes.
 
 ## Rate card
 
@@ -10,17 +10,39 @@ AegisFlow records provider-reported input/output token counts on agent execution
 - Rate changes are audited and require owner/admin permission.
 - The configured source and effective date are retained as metadata.
 
-## API
+## Cost API
 
 - `GET /api/v1/costs/pricing` — read configured rates.
 - `PUT /api/v1/costs/pricing` — upsert a model rate.
 - `GET /api/v1/costs/overview?range=24h|7d|30d` — estimate spend from provider usage.
 
-The overview includes input/output tokens, estimated USD, per-model breakdown, priced/unpriced step counts, pricing coverage, and sampling metadata. All reads and writes are tenant-scoped from authenticated server context.
+## Budget governance API
 
-## Workspace UI
+- `GET /api/v1/budgets` — list tenant policies with current-month estimated spend, remaining amount, utilization, warning and exceeded states.
+- `PUT /api/v1/budgets` — create or update a policy.
+- `DELETE /api/v1/budgets/:scopeType/:scopeValue` — remove a policy (scope value must be URL-encoded).
 
-The React Usage & billing workspace is available from the Govern navigation. It supports sign-in, 24-hour/7-day/30-day cost summaries, per-model token and estimated-cost breakdowns, pricing coverage, and owner/admin model-rate configuration. The interface intentionally labels figures as estimates and shows when run sampling is active. Viewers can inspect cost summaries; only owners and admins can save rates.
+Example tenant-wide policy:
+
+```json
+{
+  "scopeType": "tenant",
+  "scopeValue": "*",
+  "monthlyLimitUsd": 500,
+  "warningThresholdPercent": 80,
+  "enforcement": "soft",
+  "enabled": true
+}
+```
+
+Scope values:
+- `tenant`: exactly `*`.
+- `agent`: the tenant-owned agent's MongoDB ID.
+- `model`: `provider/model`, for example `openai/gpt-4.1`.
+
+Policies use UTC calendar months. Each policy has a USD monthly limit, a warning threshold from 1–99%, an enabled flag, and a soft/hard enforcement mode. Owner/admin can create, update and delete policies; operator/viewer can read them. All queries are tenant-scoped and mutations are audited.
+
+Budget usage is calculated from recorded provider token usage using the current configured model rates. Agent scope is attributed through the run's private pinned agent snapshot and matching node ID. The API samples at most 5,000 recent monthly runs and reports the sampled flag. Unknown model rates are excluded from estimated spend, so configure rate cards before relying on budget utilization.
 
 ## Estimate formula
 
@@ -28,4 +50,4 @@ The React Usage & billing workspace is available from the Govern navigation. It 
 
 ## Important limitations
 
-These are estimates, not provider invoices. The current implementation applies the currently configured rate card to all selected historical runs. It does not yet retain immutable price snapshots on execution steps, so editing a rate can revise historical estimates. Provider cached-token pricing, batch discounts, tool/image/audio charges, taxes, FX, budgets, alerts, and reconciliation are not included. The endpoint samples at most 5,000 runs and exposes that condition in its response.
+These are estimates, not provider invoices. The current implementation applies the currently configured rate card to all selected historical runs. It does not retain immutable price snapshots, so editing a rate can revise historical estimates. Provider cached-token pricing, batch discounts, tool/image/audio charges, taxes, FX, and billing-grade reconciliation are not included. Budget threshold states are derived on read; persistent alert delivery, atomic reservations and strict concurrent hard-cap enforcement are future work. The 5,000-run sample limit means large tenants should treat sampled budget totals as lower-bound operational estimates.
