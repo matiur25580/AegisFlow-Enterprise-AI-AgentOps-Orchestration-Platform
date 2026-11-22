@@ -30,3 +30,6 @@ Supply an `Idempotency-Key` header (1–128 URL-safe characters) when queueing. 
 - Delivery is at-least-once across worker crashes. Any future external node adapter must pass a stable run/node idempotency key to its provider or downstream system before side effects are enabled.
 
 The worker is an in-process poller backed by MongoDB, not a separate queue service. For horizontal scale, run one or more API/worker processes with shared MongoDB; atomic claims prevent two healthy workers from owning the same lease at once. Tune lease and polling intervals against real node timeouts before production use.
+
+
+Before production rollout, validate worker lease duration against the maximum execution time of every enabled adapter and configure durable backups and monitoring for the execution collection.
