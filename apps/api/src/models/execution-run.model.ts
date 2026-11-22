@@ -5,6 +5,10 @@ const stepSchema = new Schema({
   label: { type: String, required: true }, status: { type: String, enum: ["running", "waiting_approval", "succeeded", "failed"], required: true },
   attempt: { type: Number, min: 1, required: true }, startedAt: { type: Date, required: true },
   completedAt: { type: Date, default: null }, output: { type: Schema.Types.Mixed, default: null },
+  providerUsage: {
+    inputTokens: { type: Number, default: null }, outputTokens: { type: Number, default: null },
+    durationMs: { type: Number, default: null }, provider: { type: String, default: null }, model: { type: String, default: null }
+  },
   error: { type: String, default: null }
 }, { _id: false });
 
