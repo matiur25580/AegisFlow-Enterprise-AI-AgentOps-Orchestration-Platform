@@ -20,7 +20,7 @@ AegisFlow records provider-reported input/output token counts on agent execution
 
 - `GET /api/v1/budgets` — list tenant policies with current-month estimated spend, remaining amount, utilization, warning and exceeded states.
 - `PUT /api/v1/budgets` — create or update a policy.
-- `DELETE /api/v1/budgets/:scopeType/:scopeValue` — remove a policy (scope value must be URL-encoded).
+- `DELETE /api/v1/budgets/:scopeType?scopeValue=...` — remove a policy.
 
 Example tenant-wide policy:
 
