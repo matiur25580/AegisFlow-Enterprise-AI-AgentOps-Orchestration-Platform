@@ -27,3 +27,33 @@ test("missing submissions fail and contains metric only accepts strings", () => 
 test("empty evaluation suites produce a safe zero score", () => {
   assert.equal(evaluateCases([], [], "exact_match").score, 0);
 });
+
+
+import { assessEvaluationGate } from "./evaluator.js";
+
+test("release gate passes an initial run that meets the configured minimum", () => {
+  const result = assessEvaluationGate(88, null, { minScore: 80, maxRegressionPoints: 8 });
+  assert.equal(result.status, "passed");
+  assert.equal(result.previousScore, null);
+  assert.equal(result.regressionPoints, null);
+  assert.deepEqual(result.reasons, []);
+});
+
+test("release gate blocks a score below the configured quality threshold", () => {
+  const result = assessEvaluationGate(74, 76, { minScore: 80, maxRegressionPoints: 8 });
+  assert.equal(result.status, "blocked");
+  assert.ok(result.reasons.some(reason => reason.includes("below the required minimum")));
+});
+
+test("release gate blocks material regression even when the minimum score is met", () => {
+  const result = assessEvaluationGate(90, 99, { minScore: 85, maxRegressionPoints: 5 });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.regressionPoints, 9);
+  assert.ok(result.reasons.some(reason => reason.includes("regressed")));
+});
+
+test("release gate allows regression within the configured tolerance", () => {
+  const result = assessEvaluationGate(92, 96, { minScore: 85, maxRegressionPoints: 5 });
+  assert.equal(result.status, "passed");
+  assert.equal(result.regressionPoints, 4);
+});
