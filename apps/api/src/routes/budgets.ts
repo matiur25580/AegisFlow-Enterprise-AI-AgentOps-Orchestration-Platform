@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { BudgetPolicy } from "../models/budget-policy.model.js";
+import { Agent } from "../models/agent.model.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { requirePermission } from "../middleware/authorize.js";
 import { asyncHandler } from "../utils/async-handler.js";
@@ -42,7 +43,11 @@ budgetsRouter.get("/", requirePermission("budgets:read"), asyncHandler(async (_r
 budgetsRouter.put("/", requirePermission("budgets:manage"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const input = policySchema.parse(req.body);
-  const scopeValue = input.scopeType === "model" ? input.scopeValue.toLowerCase() : input.scopeValue;
+  const scopeValue = input.scopeType === "tenant" ? input.scopeValue : input.scopeValue.toLowerCase();
+  if (input.scopeType === "agent" && !await Agent.exists({ _id: scopeValue, tenantId: auth.tenantId })) {
+    res.status(404).json({ error: { code: "BUDGET_AGENT_NOT_FOUND", message: "The budget agent must belong to this workspace." } });
+    return;
+  }
   const policy = await BudgetPolicy.findOneAndUpdate(
     { tenantId: auth.tenantId, scopeType: input.scopeType, scopeValue },
     { $set: { ...input, scopeValue, updatedBy: auth.userId }, $setOnInsert: { tenantId: auth.tenantId } },
