@@ -36,9 +36,9 @@ test("rejects cycles", () => {
 test("requires node-specific configuration and rejects inline credentials", () => {
   const issues = validateWorkflowGraph(
     [
-      nodes[0],
+      nodes[0]!,
       { id: "agent", type: "agent", label: "Agent", position: { x: 100, y: 0 }, config: { apiKey: "do-not-store" } },
-      nodes[1]
+      nodes[1]!
     ],
     [{ id: "a", source: "start", target: "agent" }, { id: "b", source: "agent", target: "end" }]
   );
