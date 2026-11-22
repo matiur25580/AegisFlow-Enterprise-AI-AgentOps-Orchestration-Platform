@@ -58,7 +58,7 @@ export class AgentProviderExecutor {
     }
   }
 
-  private buildRequest(provider: SupportedProvider, config: AgentProviderConfig, apiKey: string, input: string) {
+  private buildRequest(provider: SupportedProvider, config: AgentProviderConfig, apiKey: string, input: string): ProviderRequest {
     if (provider === "openai") return {
       url: endpoints.openai,
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
