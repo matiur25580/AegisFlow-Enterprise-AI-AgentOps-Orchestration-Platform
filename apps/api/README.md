@@ -137,3 +137,16 @@ This runtime deliberately treats rejection and expiry as terminal failures. Conf
 Ranges are `24h`, `7d`, and `30d`. The overview reads at most 5,000 runs and reports when the result is sampled. Trace responses omit graph payloads, node outputs, idempotency keys, lease tokens and raw error messages. Error codes are returned instead of raw provider or workflow error text.
 
 These metrics are operational estimates derived from execution records, not billing-grade telemetry. Provider token usage, model cost, distributed trace propagation, streaming logs and alerting require future provider/event instrumentation. See [Observability foundation](../../docs/observability-foundation.md).
+
+
+## Evaluation and quality intelligence
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/evaluations/suites` | `evaluations:read` | List tenant evaluation suites |
+| POST | `/evaluations/suites` | `evaluations:write` | Create a suite and optional active-agent-version association |
+| GET | `/evaluations/suites/:suiteId` | `evaluations:read` | Read suite and recent runs |
+| POST | `/evaluations/suites/:suiteId/runs` | `evaluations:run` | Score submitted candidate outputs |
+| GET | `/evaluations/runs` | `evaluations:read` | List recent evaluation runs |
+
+The deterministic scoring modes are `exact_match` (structural JSON equality) and `contains` (case-sensitive string substring). Scores use case weights and range from 0 to 100. Current APIs score submitted outputs; they do not invoke providers or claim model-judge quality. See [Evaluation and quality intelligence](../../docs/evaluation-quality-intelligence.md).
