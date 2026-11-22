@@ -11,7 +11,7 @@ test("OpenAI adapter sends bounded request and returns usage without exposing cr
  const fakeFetch: typeof fetch=async(url,init)=>{captured.value={url:String(url),init:init??{}};return new Response(JSON.stringify({choices:[{message:{content:"hello"}}],usage:{prompt_tokens:10,completion_tokens:4}}),{status:200,headers:{"content-type":"application/json"}});};
  const result=await new AgentProviderExecutor(resolver,fakeFetch).execute(config,{question:"hi"});
  assert.equal(result.text,"hello");assert.equal(result.usage.inputTokens,10);assert.equal(result.usage.outputTokens,4);
- assert.equal(captured?.url,"https://api.openai.com/v1/chat/completions");
+ assert.equal(captured.value?.url,"https://api.openai.com/v1/chat/completions");
  assert.equal(new Headers(captured?.init.headers).get("authorization"),"Bearer test-api-key-123");
 });
 
