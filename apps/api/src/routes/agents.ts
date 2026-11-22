@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "zod";
 import { Agent } from "../models/agent.model.js";
 import { AgentVersion } from "../models/agent-version.model.js";
@@ -36,10 +36,10 @@ const versionSchema = createSchema.shape.version;
 const statusSchema = z.object({ status: z.enum(["draft", "deprecated", "archived"]) });
 const idSchema = z.string().regex(/^[a-f\d]{24}$/i, "A valid agent id is required.");
 
-async function audit(req: Parameters<typeof asyncHandler>[0] extends (req: infer R, ...args: never[]) => unknown ? R : never, auth: AuthContext, action: string, agentId: string, metadata: Record<string, unknown> = {}) {
+async function audit(req: Request, auth: AuthContext, action: string, agentId: string, metadata: Record<string, unknown> = {}) {
   await writeAuditEvent({
     tenantId: auth.tenantId, actorUserId: auth.userId, action, resourceType: "agent",
-    resourceId: agentId, metadata, requestId: req.res?.locals.requestId,
+    resourceId: agentId, metadata,
     ipAddress: req.ip
   });
 }
