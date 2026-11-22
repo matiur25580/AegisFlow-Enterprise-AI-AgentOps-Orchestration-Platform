@@ -21,18 +21,23 @@ export async function evaluateBudgetAlerts(tenantId: string, now = new Date()) {
     if (!eventType) continue;
 
     const dedupeKey = [String(policy._id), periodStart.toISOString(), eventType].join(":");
-    const result = await BudgetAlert.updateOne(
-      { tenantId, dedupeKey },
-      { $setOnInsert: {
-        tenantId, policyId: policy._id, scopeType: policy.scopeType,
-        scopeValue: policy.scopeValue, periodStart, eventType, dedupeKey,
-        thresholdPercent: eventType === "warning" ? policy.warningThresholdPercent : 100,
-        observedSpendUsd: state.spentUsd, monthlyLimitUsd: policy.monthlyLimitUsd,
-        utilizationPercent: state.utilizationPercent
-      } },
-      { upsert: true }
-    );
-    if (result.upsertedCount === 1) created += 1;
+    try {
+      const result = await BudgetAlert.updateOne(
+        { tenantId, dedupeKey },
+        { $setOnInsert: {
+          tenantId, policyId: policy._id, scopeType: policy.scopeType,
+          scopeValue: policy.scopeValue, periodStart, eventType, dedupeKey,
+          thresholdPercent: eventType === "warning" ? policy.warningThresholdPercent : 100,
+          observedSpendUsd: state.spentUsd, monthlyLimitUsd: policy.monthlyLimitUsd,
+          utilizationPercent: state.utilizationPercent
+        } },
+        { upsert: true }
+      );
+      if (result.upsertedCount === 1) created += 1;
+    } catch (error) {
+      // Concurrent evaluators may race to insert the same unique dedupe key.
+      if (!(error && typeof error === "object" && "code" in error && error.code === 11000)) throw error;
+    }
   }
   return { created, sampled: false };
 }
