@@ -22,6 +22,7 @@ Protected requests require `Authorization: Bearer <access-token>`. Tenant identi
 | --- | --- | --- | --- |
 | GET | `/agents?page=1&limit=25&status=draft&search=...` | `agents:read` | Tenant-scoped, paginated registry |
 | POST | `/agents` | `agents:write` | Create agent and immutable initial version |
+| PATCH | `/agents/:agentId/secret-reference` | `agents:write` | Attach, rotate or clear a tenant vault reference without changing agent version history |
 | GET | `/agents/:agentId` | `agents:read` | Agent detail and version history |
 | GET | `/agents/:agentId/versions` | `agents:read` | Immutable version history |
 | POST | `/agents/:agentId/versions` | `agents:write` | Create a new version snapshot |
