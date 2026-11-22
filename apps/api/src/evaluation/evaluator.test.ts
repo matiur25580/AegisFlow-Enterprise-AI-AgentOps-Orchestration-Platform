@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateCases } from "./evaluator.js";
+import { assessEvaluationGate, evaluateCases } from "./evaluator.js";
 
 test("exact-match evaluation compares JSON objects independent of key order and weights cases", () => {
   const result = evaluateCases([
