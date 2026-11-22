@@ -27,6 +27,10 @@ secretsRouter.post("/", requirePermission("secrets:manage"), asyncHandler(async 
   const auth = res.locals.auth as AuthContext;
   const input = createSchema.parse(req.body);
   const ref = `aegisflow:${input.slug}`;
+  const existing = await Secret.findOne({ tenantId: auth.tenantId, ref }).select("provider").lean();
+  if (existing && existing.provider !== input.provider) {
+    res.status(409).json({ error: { code: "SECRET_PROVIDER_IMMUTABLE", message: "A secret reference cannot be reassigned to a different provider." } }); return;
+  }
   const encrypted = encryptSecret(input.apiKey);
   const secret = await Secret.findOneAndUpdate(
     { tenantId: auth.tenantId, ref },
