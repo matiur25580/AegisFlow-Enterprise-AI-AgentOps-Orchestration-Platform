@@ -22,3 +22,11 @@ test("AES-256-GCM authentication rejects modified ciphertext",()=>{
 test("AES-256-GCM rejects invalid key lengths",()=>{
  assert.throws(()=>encryptWithKey("secret",randomBytes(16)));
 });
+
+test("AES-256-GCM binds ciphertext to its tenant and secret reference",()=>{
+ const key=randomBytes(32);
+ const context="tenant-a:aegisflow:primary-openai:openai";
+ const encrypted=encryptWithKey("tenant credential",key,context);
+ assert.equal(decryptWithKey(encrypted,key,context),"tenant credential");
+ assert.throws(()=>decryptWithKey(encrypted,key,"tenant-b:aegisflow:primary-openai:openai"));
+});
