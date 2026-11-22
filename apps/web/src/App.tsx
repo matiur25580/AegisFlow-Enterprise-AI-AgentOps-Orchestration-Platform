@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bot, Boxes, ChevronDown, CircleHelp,
   Command, CreditCard, GitBranch, LayoutDashboard, LifeBuoy, LockKeyhole,
@@ -138,11 +138,11 @@ function App() {
   );
 }
 
-function Metric({ title, value, change, icon, trend, foot }: { title: string; value: string; change: string; icon: React.ReactNode; trend: "up" | "down"; foot: string }) {
+function Metric({ title, value, change, icon, trend, foot }: { title: string; value: string; change: string; icon: ReactNode; trend: "up" | "down"; foot: string }) {
   return <article className="panel metric-card"><div className="metric-top"><span>{title}</span><span className="metric-icon">{icon}</span></div><div className="metric-value">{value}</div><div className="metric-bottom"><span className={`metric-change ${trend}`}>{trend === "up" ? <ArrowUpRight size={13}/> : <ArrowDownRight size={13}/>} {change}</span><span className="metric-foot">{foot}</span></div></article>;
 }
 
-function HealthRow({ icon, title, value, state }: { icon: React.ReactNode; title: string; value: string; state: "healthy" | "attention" }) {
+function HealthRow({ icon, title, value, state }: { icon: ReactNode; title: string; value: string; state: "healthy" | "attention" }) {
   return <div className="health-row"><span className={`health-icon ${state}`}>{icon}</span><span>{title}</span><strong>{value}</strong></div>;
 }
 
