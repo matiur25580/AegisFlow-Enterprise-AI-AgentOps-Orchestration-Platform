@@ -50,7 +50,7 @@ observabilityRouter.get("/runs/:runId/trace", requirePermission("runs:read"), as
     res.status(404).json({ error: { code: "RUN_NOT_FOUND", message: "Execution run was not found in this workspace." } });
     return;
   }
-  const steps = (run.steps ?? []).map((step: Record<string, unknown>) => {
+  const steps = (run.steps ?? []).map(step => {
     const startedAt = step.startedAt instanceof Date ? step.startedAt : step.startedAt ? new Date(String(step.startedAt)) : null;
     const completedAt = step.completedAt instanceof Date ? step.completedAt : step.completedAt ? new Date(String(step.completedAt)) : null;
     const durationMs = startedAt && completedAt && completedAt >= startedAt ? completedAt.getTime() - startedAt.getTime() : null;
