@@ -35,7 +35,8 @@ export function validateWorkflowGraph(nodes: WorkflowNodeInput[], edges: Workflo
 
     const config = node.config ?? {};
     const inspectConfig = (value: unknown, path = ""): void => {
-      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      if (!value || typeof value !== "object") return;
+      if (Array.isArray(value)) { value.forEach((entry, index) => inspectConfig(entry, `${path}[${index}]`)); return; }
       for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
         const fieldPath = path ? `${path}.${key}` : key;
         if (forbiddenSecretKey.test(key)) issues.push({ code: "RAW_CREDENTIAL_FIELD", message: `Node "${node.id}" contains a prohibited credential field "${fieldPath}". Use secretRef.`, nodeId: node.id });
