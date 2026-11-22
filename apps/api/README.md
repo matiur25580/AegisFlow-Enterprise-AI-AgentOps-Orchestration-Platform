@@ -105,3 +105,23 @@ Permission checks deny by default.
 ## Security and operational limitations
 
 This is an evolving platform foundation, not a production certification. Invitations, password reset, MFA, SSO, billing, organization switching, external secret-manager resolution, agent execution, and automated database-backed integration tests remain future milestones. Use TLS, managed secrets, backups, replica-set deployment, monitoring and a reviewed retention policy before production use.
+
+## Human approval runtime
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/approvals?status=pending&page=1&limit=25` | `approvals:read` | Reviewer inbox, scoped to the authenticated user's assigned role or identity |
+| GET | `/approvals/:approvalId` | `approvals:read` | Approval detail and tenant-scoped execution context |
+| POST | `/approvals/:approvalId/decision` | `approvals:decide` | Record an approve or reject decision exactly once |
+
+Decision body:
+
+```json
+{ "decision": "approve", "comment": "Reviewed the extracted invoice and supporting evidence." }
+```
+
+Approval nodes may configure `title`, `description`, `assigneeRole` (owner, admin, operator or viewer), `assigneeUserId`, and `timeoutMinutes` (1–10080; defaults to 1440). The worker creates one approval per tenant/run/node, pins it to the immutable workflow version and graph hash, then moves the run into `waiting_approval` and releases its worker lease. Approving atomically records reviewer identity/comment and queues the run at the next graph node; rejecting fails the run. Expired requests are marked by the worker poller and fail the waiting run. Cancelling a waiting run also cancels its pending approval.
+
+Decision writes use a MongoDB transaction across the approval and execution-run documents. The database must run as a replica set or transaction-capable sharded cluster; standalone MongoDB deployments cannot provide the atomic decision guarantee. Reviewer access is tenant-scoped and additionally constrained to the assigned user or exact assigned role. Raw credentials are not accepted or stored in approval records.
+
+This runtime deliberately treats rejection and expiry as terminal failures. Configurable reject branches, delegation, escalation policies, quorum approvals, notifications, and a richer approval audit timeline remain future work.
