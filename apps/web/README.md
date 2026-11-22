@@ -29,3 +29,10 @@ The server remains authoritative for authorization, tenant scope, graph validati
 ## Current scope
 
 The canvas is a lightweight React editor, not yet a full node-port connector experience. Execution, live run simulation, branching runtime semantics, approval execution, collaboration, autosave and real-time multi-user editing are not implemented in this milestone. No deployment is performed by this repository workflow.
+
+
+## Budget Alerts
+
+The **Govern → Budget alerts** workspace uses the authenticated session and refresh-cookie flow to load the tenant's persistent budget alert history. It displays warning and exceeded events, captured estimated spend/limit/utilization, unread count, timestamps, and a mark-as-read action. Refresh also evaluates current usage through the API and may persist newly crossed thresholds.
+
+The UI surfaces the 5,000-run sample saturation warning. Alert evaluation currently occurs on API reads; this is not scheduled or real-time push delivery. External email and webhook notifications are not enabled.
