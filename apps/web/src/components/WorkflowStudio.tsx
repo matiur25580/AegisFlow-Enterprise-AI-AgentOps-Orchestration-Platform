@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowDown, ArrowLeft, ArrowRight, Bot, Check, ChevronDown, CircleAlert, Clock3, GitBranch, LockKeyhole, LogIn, Plus, Save, ShieldCheck, Sparkles, Workflow as WorkflowIcon, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Activity, ArrowRight, Bot, Check, CircleAlert, Clock3, GitBranch, LockKeyhole, LogIn, Plus, Save, ShieldCheck, Sparkles, Workflow as WorkflowIcon, X } from "lucide-react";
 
 type NodeType = "start" | "agent" | "condition" | "approval" | "end";
 type GraphNode = { id: string; type: NodeType; label: string; position: { x: number; y: number }; config: Record<string, unknown> };
@@ -180,7 +180,7 @@ export default function WorkflowStudio() {
     finally { setBusy(false); }
   };
 
-  const signIn = async (event: React.FormEvent) => {
+  const signIn = async (event: FormEvent) => {
     event.preventDefault(); setAuthBusy(true); setAuthError("");
     try {
       const response = await fetch(`${API}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ email, password }) });
