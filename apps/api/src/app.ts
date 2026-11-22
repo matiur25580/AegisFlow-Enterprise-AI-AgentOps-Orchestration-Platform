@@ -16,6 +16,7 @@ import { workflowsRouter } from "./routes/workflows.js";
 import { runsRouter } from "./routes/runs.js";
 import { approvalsRouter } from "./routes/approvals.js";
 import { observabilityRouter } from "./routes/observability.js";
+import { evaluationsRouter } from "./routes/evaluations.js";
 
 export const app = express();
 
@@ -41,6 +42,7 @@ app.use(`${env.API_PREFIX}/agents`, agentsRouter);
 app.use(`${env.API_PREFIX}/workflows`, workflowsRouter);
 app.use(`${env.API_PREFIX}/approvals`, approvalsRouter);
 app.use(`${env.API_PREFIX}/observability`, observabilityRouter);
+app.use(`${env.API_PREFIX}/evaluations`, evaluationsRouter);
 app.use(env.API_PREFIX, runsRouter);
 app.use(notFound);
 app.use(errorHandler);
