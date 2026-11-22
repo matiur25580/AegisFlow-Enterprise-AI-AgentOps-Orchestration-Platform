@@ -36,7 +36,7 @@ React 18 · TypeScript · Vite · Node.js · Express 4 · MongoDB · Mongoose ·
 Prerequisites: Node.js 20.11+ (Node 22 recommended), npm 10+, Docker and MongoDB.
 
 ```bash
-npm install
+npm ci
 # Configure root and app environment files using .env.example templates.
 npm run dev
 ```
