@@ -29,8 +29,6 @@ test("empty evaluation suites produce a safe zero score", () => {
 });
 
 
-import { assessEvaluationGate } from "./evaluator.js";
-
 test("release gate passes an initial run that meets the configured minimum", () => {
   const result = assessEvaluationGate(88, null, { minScore: 80, maxRegressionPoints: 8 });
   assert.equal(result.status, "passed");
