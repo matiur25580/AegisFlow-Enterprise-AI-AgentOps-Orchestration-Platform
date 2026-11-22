@@ -78,9 +78,9 @@ runsRouter.get("/:runId", requirePermission("runs:read"), asyncHandler(async (re
 runsRouter.post("/:runId/cancel", requirePermission("runs:operate"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const runId = idSchema.parse(req.params.runId);
-  const run = await ExecutionRun.findOneAndUpdate({ _id: runId, tenantId: auth.tenantId, status: { $in: ["queued", "running"] } }, { $set: { cancelRequestedAt: new Date() } }, { new: true });
+  const run = await ExecutionRun.findOneAndUpdate({ _id: runId, tenantId: auth.tenantId, status: { $in: ["queued", "running", "waiting_approval"] } }, { $set: { cancelRequestedAt: new Date() } }, { new: true });
   if (!run) { res.status(409).json({ error: { code: "RUN_NOT_CANCELLABLE", message: "Run was not found or is already terminal." } }); return; }
-  if (run.status === "queued") { run.status = "cancelled"; run.completedAt = new Date(); await run.save(); }
+  if (run.status === "queued" || run.status === "waiting_approval") { run.status = "cancelled"; run.completedAt = new Date(); await run.save(); }\n  if (run.status === "cancelled") {\n    const { Approval } = await import("../models/approval.model.js");\n    await Approval.updateMany({ tenantId: auth.tenantId, runId, status: "pending" }, { $set: { status: "cancelled", decidedAt: new Date(), decisionComment: "Workflow run cancelled." } });\n  }
   await audit(auth, "run.cancel_requested", runId);
   res.json({ data: run });
 }));
