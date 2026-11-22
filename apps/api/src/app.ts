@@ -1,0 +1,56 @@
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import { env } from "./config/env.js";
+import { logger } from "./config/logger.js";
+import { requestContext } from "./middleware/request-context.js";
+import { notFound } from "./middleware/not-found.js";
+import { errorHandler } from "./middleware/error-handler.js";
+import { authRateLimit } from "./middleware/auth-rate-limit.js";
+import { healthRouter } from "./routes/health.js";
+import { authRouter } from "./routes/auth.js";
+import { workspaceRouter } from "./routes/workspace.js";
+import { agentsRouter } from "./routes/agents.js";
+import { workflowsRouter } from "./routes/workflows.js";
+import { runsRouter } from "./routes/runs.js";
+import { approvalsRouter } from "./routes/approvals.js";
+import { observabilityRouter } from "./routes/observability.js";
+import { evaluationsRouter } from "./routes/evaluations.js";
+import { secretsRouter } from "./routes/secrets.js";
+import { costsRouter } from "./routes/costs.js";
+import { budgetsRouter } from "./routes/budgets.js";
+import { budgetAlertsRouter } from "./routes/budget-alerts.js";
+
+export const app = express();
+
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+app.use(helmet());
+app.use(cors({ origin: env.WEB_ORIGIN, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+app.use(cookieParser());
+app.use(requestContext);
+app.use((req, res, next) => {
+  logger.info({ method: req.method, path: req.path, requestId: res.locals.requestId }, "request started");
+  next();
+});
+
+app.get("/", (_req, res) => res.json({ name: "AegisFlow API", version: "0.3.0", docs: "See apps/api/README.md." }));
+app.use("/health", healthRouter);
+app.use(env.API_PREFIX, healthRouter);
+app.use(`${env.API_PREFIX}/auth`, authRateLimit, authRouter);
+app.use(`${env.API_PREFIX}/workspace`, workspaceRouter);
+app.use(`${env.API_PREFIX}/agents`, agentsRouter);
+app.use(`${env.API_PREFIX}/workflows`, workflowsRouter);
+app.use(`${env.API_PREFIX}/approvals`, approvalsRouter);
+app.use(`${env.API_PREFIX}/observability`, observabilityRouter);
+app.use(`${env.API_PREFIX}/evaluations`, evaluationsRouter);
+app.use(`${env.API_PREFIX}/secrets`, secretsRouter);
+app.use(`${env.API_PREFIX}/costs`, costsRouter);
+app.use(`${env.API_PREFIX}/budgets`, budgetsRouter);
+app.use(`${env.API_PREFIX}/budget-alerts`, budgetAlertsRouter);
+app.use(env.API_PREFIX, runsRouter);
+app.use(notFound);
+app.use(errorHandler);
