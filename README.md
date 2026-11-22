@@ -67,73 +67,73 @@ These 12 views are **illustrative SVG dashboard concepts**, not screenshots capt
 
 ### 01. AgentOps command center
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Agent operations overview showing registered agents, active runs, approval backlog, reliability signals and platform health. All values are synthetic.
 
 ![AegisFlow AgentOps command center](docs/assets/dashboard/01-agentops-command-center.svg)
 
 ### 02. Agent registry
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Agent registry view showing identity, owner, environment, model/provider, lifecycle state and governance metadata. All entries are illustrative.
 
 ![AegisFlow Agent registry](docs/assets/dashboard/02-agent-registry.svg)
 
 ### 03. Workflow studio
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Workflow design workspace for composing agent steps, tool boundaries, retry policies and human approval checkpoints. This is a design concept.
 
 ![AegisFlow Workflow studio](docs/assets/dashboard/03-workflow-studio.svg)
 
 ### 04. Run & trace explorer
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Execution trace explorer showing run timelines, step outcomes, tool calls, latency and failure context. All traces are synthetic.
 
 ![AegisFlow Run & trace explorer](docs/assets/dashboard/04-run-trace-explorer.svg)
 
 ### 05. Human approval inbox
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Human approval inbox for risk-aware review of proposed actions, approver decisions, rationale and request expiry. All requests are synthetic.
 
 ![AegisFlow Human approval inbox](docs/assets/dashboard/05-human-approval-inbox.svg)
 
 ### 06. Evaluation & quality gates
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Evaluation quality gates view for task success, groundedness, policy adherence, regression outcomes and release thresholds. All scores are illustrative.
 
 ![AegisFlow Evaluation & quality gates](docs/assets/dashboard/06-evaluation-quality-gates.svg)
 
 ### 07. Agent cost intelligence
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Agent cost intelligence view for token usage, provider spend, cost per successful task and budget trends. All financial figures are synthetic.
 
 ![AegisFlow Agent cost intelligence](docs/assets/dashboard/07-agent-cost-intelligence.svg)
 
 ### 08. Budget & policy governance
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Budget and policy governance view for per-agent limits, spend alerts, tool permissions and enforced operational guardrails. All policies are examples.
 
 ![AegisFlow Budget & policy governance](docs/assets/dashboard/08-budget-policy-governance.svg)
 
 ### 09. Prompt & version governance
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Prompt and version governance view for prompt revisions, evaluation history, approval state and controlled promotion. All versions are illustrative.
 
 ![AegisFlow Prompt & version governance](docs/assets/dashboard/09-prompt-version-governance.svg)
 
 ### 10. Tool & integration health
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Tool integration health view for connector availability, authentication state, rate limits and recent execution failures. All telemetry is synthetic.
 
 ![AegisFlow Tool & integration health](docs/assets/dashboard/10-tool-integration-health.svg)
 
 ### 11. Audit explorer
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Audit explorer view for attributable agent actions, approvals, tool access and policy decisions with traceable event history. All events are synthetic.
 
 ![AegisFlow Audit explorer](docs/assets/dashboard/11-audit-explorer.svg)
 
 ### 12. Workflow promotion governance
 
-Illustrative AgentOps operator view for lifecycle, orchestration, quality and governance. All example values are synthetic and not live runtime telemetry.
+Workflow promotion governance view for environment-specific releases, evaluation gates, approval checkpoints and rollback readiness. All release data is illustrative.
 
 ![AegisFlow Workflow promotion governance](docs/assets/dashboard/12-workflow-promotion-governance.svg)
 
