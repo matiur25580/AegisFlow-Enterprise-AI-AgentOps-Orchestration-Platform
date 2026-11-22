@@ -24,7 +24,7 @@ budgetAlertsRouter.get("/", requirePermission("budgets:read"), asyncHandler(asyn
 
 budgetAlertsRouter.patch("/:alertId/read", requirePermission("budgets:read"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
-  const alertId = z.string().regex(/^[a-f\\d]{24}$/i).parse(req.params.alertId);
+  const alertId = z.string().regex(/^[a-f\d]{24}$/i).parse(req.params.alertId);
   const alert = await BudgetAlert.findOneAndUpdate(
     tenantBudgetAlertFilter(auth.tenantId, alertId),
     { $set: { readAt: new Date() } },
