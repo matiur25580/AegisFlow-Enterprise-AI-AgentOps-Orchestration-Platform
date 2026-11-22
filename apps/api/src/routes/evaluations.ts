@@ -17,8 +17,8 @@ const idSchema = z.string().regex(/^[a-f\d]{24}$/i);
 const caseSchema = z.object({
   caseId: z.string().trim().min(1).max(80).regex(/^[\w.-]+$/),
   name: z.string().trim().min(1).max(160),
-  input: z.unknown(),
-  expectedOutput: z.unknown(),
+  input: z.unknown().refine(value => value !== undefined, "Input is required."),
+  expectedOutput: z.unknown().refine(value => value !== undefined, "Expected output is required."),
   weight: z.number().min(0.01).max(100).default(1)
 });
 const createSuiteSchema = z.object({
@@ -32,7 +32,7 @@ const createSuiteSchema = z.object({
   if (new Set(ids).size !== ids.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["cases"], message: "Case IDs must be unique within a suite." });
 });
 const submissionSchema = z.object({
-  results: z.array(z.object({ caseId: z.string().min(1).max(80), actualOutput: z.unknown() })).max(200)
+  results: z.array(z.object({ caseId: z.string().min(1).max(80), actualOutput: z.unknown().refine(value => value !== undefined, "Actual output is required.") })).max(200)
 }).superRefine((value, ctx) => {
   const ids = value.results.map(item => item.caseId);
   if (new Set(ids).size !== ids.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["results"], message: "Each case may be submitted only once." });
