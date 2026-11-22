@@ -20,7 +20,7 @@ const createSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(32)).max(20).optional().default([]),
   provider: z.enum(["openai", "anthropic", "google", "azure-openai", "bedrock", "custom"]),
   model: z.string().trim().min(1).max(120),
-  secretRef: z.string().trim().min(3).max(200).regex(/^(vault|aws-sm|azure-kv|gcp-sm):[a-zA-Z0-9/_-]+$|^aegisflow:[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable().optional(),
+  secretRef: z.string().trim().min(3).max(200).regex(/^aegisflow:[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable().optional(),
   version: z.object({
     changelog: z.string().max(1000).optional().default("Initial version"),
     systemPrompt: z.string().min(1).max(30000),
@@ -74,6 +74,23 @@ agentsRouter.post("/", requirePermission("agents:write"), asyncHandler(async (re
   });
   await audit(req, auth, "agent.created", String(agent._id), { slug: agent.slug, version: 1 });
   res.status(201).json({ data: { agent, version } });
+}));
+
+agentsRouter.patch("/:agentId/secret-reference", requirePermission("agents:write"), asyncHandler(async (req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const agentId = idSchema.parse(req.params.agentId);
+  const input = z.object({ secretRef: z.string().regex(/^aegisflow:[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable() }).strict().parse(req.body);
+  const agent = await Agent.findOne({ _id: agentId, tenantId: auth.tenantId, status: { $ne: "archived" } }).select("_id provider").lean();
+  if (!agent) { res.status(404).json({ error: { code: "AGENT_NOT_FOUND_OR_LOCKED", message: "Agent not found or archived." } }); return; }
+  if (input.secretRef) {
+    const { Secret } = await import("../models/secret.model.js");
+    const secret = await Secret.findOne({ tenantId: auth.tenantId, ref: input.secretRef, provider: agent.provider }).select("_id").lean();
+    if (!secret) { res.status(409).json({ error: { code: "AGENT_SECRET_REFERENCE_INVALID", message: "The secret reference must exist in this workspace and match the agent provider." } }); return; }
+  }
+  const updated = await Agent.findOneAndUpdate({ _id: agentId, tenantId: auth.tenantId, status: { $ne: "archived" } }, { $set: { secretRef: input.secretRef } }, { new: true });
+  if (!updated) { res.status(404).json({ error: { code: "AGENT_NOT_FOUND_OR_LOCKED", message: "Agent not found or archived." } }); return; }
+  await audit(req, auth, "agent.secret_reference.updated", agentId, { configured: Boolean(input.secretRef) });
+  res.json({ data: updated });
 }));
 
 agentsRouter.get("/:agentId", requirePermission("agents:read"), asyncHandler(async (req, res) => {
