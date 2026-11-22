@@ -56,6 +56,43 @@ Never send raw API keys or credentials to the registry. `secretRef` accepts a re
 
 Every registry query filters by the authenticated tenant. Agent and version creation, promotion, deprecation and archival write tenant-scoped audit events. Archived agents cannot be promoted or versioned; lifecycle changes are intentionally one-way from archived.
 
+## Visual workflow foundation
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/workflows?page=1&limit=25&status=draft&search=...` | `workflows:read` | Tenant-scoped, paginated workflow registry |
+| POST | `/workflows` | `workflows:write` | Create a workflow and immutable version 1 |
+| GET | `/workflows/:workflowId` | `workflows:read` | Workflow metadata and version history |
+| PATCH | `/workflows/:workflowId` | `workflows:write` | Update workflow metadata (not graph snapshots) |
+| POST | `/workflows/:workflowId/versions` | `workflows:write` | Validate and create a new immutable graph snapshot |
+| POST | `/workflows/:workflowId/versions/:version/promote` | `workflows:write` | Publish a version or roll back by promoting an earlier version |
+| PATCH | `/workflows/:workflowId/lifecycle` | `workflows:write` | Return a published workflow to draft or archive it |
+
+A graph contains `nodes` and `edges`. Supported node types are `start`, `agent`, `condition`, `approval`, and `end`. Each node has a stable `id`, `label`, canvas `position`, and typed `config`; edges reference node IDs using `source` and `target`.
+
+Example graph payload (the same `graph` object is accepted by workflow creation and version creation):
+
+```json
+{
+  "changelog": "Initial workflow",
+  "nodes": [
+    { "id": "start", "type": "start", "label": "Start", "position": { "x": 80, "y": 120 }, "config": {} },
+    { "id": "agent-step", "type": "agent", "label": "Extract invoice", "position": { "x": 320, "y": 120 }, "config": { "agentId": "0123456789abcdef01234567", "secretRef": "vault:production/invoice-agent" } },
+    { "id": "finish", "type": "end", "label": "Complete", "position": { "x": 560, "y": 120 }, "config": {} }
+  ],
+  "edges": [
+    { "id": "start-agent", "source": "start", "target": "agent-step" },
+    { "id": "agent-finish", "source": "agent-step", "target": "finish" }
+  ]
+}
+```
+
+Graph validation enforces exactly one start node, at least one end node, unique node/edge IDs, valid edge endpoints, reachability from start, an acyclic directed graph, node-specific required configuration, valid secret-reference URIs, and tenant-owned non-archived agent references. Graphs are capped at 200 nodes and 500 edges. Cycles are intentionally disallowed until bounded loop semantics exist. Validation errors return HTTP 422 with structured issue details.
+
+Workflow versions are append-only snapshots with a SHA-256 graph hash and Mongoose immutable fields. Promotion updates the active-version pointer and publishes the workflow; promoting an earlier version provides the rollback mechanism. All workflow and version reads/writes filter by the authenticated tenant ID from server-side auth context. Workflow lifecycle and version events are written to the tenant audit log. Secret values must never be placed in workflow configuration; use secret-reference URIs only.
+
+The current milestone provides the API and graph-validation foundation. It does not yet include the React drag-and-drop canvas, execution engine, conditional branch evaluator, durable scheduling, or approval runtime. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
+
 ## Role baseline
 
 - `owner`: all defined permissions
