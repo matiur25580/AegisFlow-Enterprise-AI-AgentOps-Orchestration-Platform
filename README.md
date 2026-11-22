@@ -169,3 +169,25 @@ AegisFlow is an actively developed AgentOps portfolio project. Illustrative dash
 - [Contributing guide](CONTRIBUTING.md) — engineering standards and pull request expectations.
 
 These documents describe intended safeguards and contribution practices; they do not imply that planned product controls are already implemented or independently verified.
+
+
+## 12. Industry alignment and next capability increments
+
+AegisFlow should evolve from workflow administration into a measurable, policy-governed agent control plane. High-value next increments:
+
+1. **Agent-native observability:** trace model calls, retrieval, MCP/tool execution, approvals and workflow spans with consistent OpenTelemetry GenAI semantic attributes.
+2. **Evaluation lineage:** version datasets, prompts, model/provider configuration, evaluator versions and thresholds so promotion evidence is reproducible.
+3. **Runtime containment:** per-tool allowlists, least-privilege credentials, isolated execution, network egress controls and bounded tool output.
+4. **Prompt-injection resilience:** classify untrusted retrieved/tool content, preserve trust boundaries and require explicit policy checks before sensitive actions.
+5. **Cost and reliability controls:** per-tenant budgets, token ceilings, concurrency limits, circuit breakers and safe retry/idempotency rules.
+6. **Privacy-aware telemetry:** redact secrets and sensitive payloads while preserving trace IDs, policy decisions and incident-reconstruction metadata.
+
+References: [OpenTelemetry GenAI semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai) cover GenAI, agent, tool and MCP operations; [NIST AI RMF](https://www.nist.gov/itl/ai-risk-management-framework) provides a voluntary framework for managing AI risks. These references are design guidance, not a certification claim.
+
+## Interview-ready engineering narrative
+
+- Explain how a workflow promotion is tied to immutable, point-in-time evaluation evidence.
+- Demonstrate how a policy gate blocks promotion when evidence is stale or incomplete.
+- Show how tool permissions and human approvals limit consequential actions.
+- Describe how token, latency, quality and cost telemetry connect to SLOs and budget guardrails.
+- Be explicit that evaluation scores are signals, not proof of safe or correct agent behavior.
