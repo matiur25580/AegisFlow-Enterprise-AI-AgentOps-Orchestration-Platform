@@ -57,3 +57,23 @@ test("requires exactly one start node and at least one end node", () => {
   assert.ok(issues.some(issue => issue.code === "START_NODE_COUNT"));
   assert.ok(issues.some(issue => issue.code === "END_NODE_REQUIRED"));
 });
+
+test("validates approval reviewer assignment and bounded deadline", () => {
+  const approval: WorkflowNodeInput = {
+    id: "review", type: "approval", label: "Finance review", position: { x: 100, y: 0 },
+    config: { assigneeRole: "operator", assigneeUserId: "0123456789abcdef01234567", timeoutMinutes: 120 }
+  };
+  const valid = validateWorkflowGraph(
+    [nodes[0]!, approval, nodes[1]!],
+    [{ id: "a", source: "start", target: "review" }, { id: "b", source: "review", target: "end" }]
+  );
+  assert.deepEqual(valid, []);
+
+  const invalid = validateWorkflowGraph(
+    [nodes[0]!, { ...approval, config: { assigneeRole: "guest", assigneeUserId: "not-an-id", timeoutMinutes: 0 } }, nodes[1]!],
+    [{ id: "a", source: "start", target: "review" }, { id: "b", source: "review", target: "end" }]
+  );
+  assert.ok(invalid.some(issue => issue.code === "APPROVAL_CONFIG_REQUIRED"));
+  assert.ok(invalid.some(issue => issue.code === "APPROVAL_ASSIGNEE_INVALID"));
+  assert.ok(invalid.some(issue => issue.code === "APPROVAL_TIMEOUT_INVALID"));
+});
