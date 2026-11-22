@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import mongoose from "mongoose";
 import { ExecutionRun } from "../models/execution-run.model.js";
 import { Approval } from "../models/approval.model.js";
 import { writeAuditEvent } from "../auth/audit.js";
@@ -70,6 +71,7 @@ async function processClaim(runId: string, token: string): Promise<void> {
         } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
+      if (!approval) throw new ExecutionError("Unable to create or retrieve the approval request.", "APPROVAL_CREATE_FAILED", true);
       if (approval.status === "pending") {
         const waiting = steps.map(step => step.nodeId === node.id ? { ...step, status: "waiting_approval" as const, completedAt: null, output: { approvalId: String(approval._id), dueAt: approval.dueAt } } : step);
         await checkpoint(runId, token, { steps: waiting, currentNodeId: node.id, status: "waiting_approval", leaseToken: null, leaseExpiresAt: null });
@@ -112,21 +114,41 @@ async function processClaim(runId: string, token: string): Promise<void> {
 async function expirePendingApprovals(): Promise<void> {
   const now = new Date();
   const expired = await Approval.find({ status: "pending", dueAt: { $lte: now } }).sort({ dueAt: 1 }).limit(100).lean();
-  for (const approval of expired) {
-    const changed = await Approval.updateOne(
-      { _id: approval._id, tenantId: approval.tenantId, status: "pending", dueAt: { $lte: now } },
-      { $set: { status: "expired", decidedAt: now, decisionComment: "Approval deadline elapsed." } }
-    );
-    if (changed.modifiedCount !== 1) continue;
-    const run = await ExecutionRun.findOne({ _id: approval.runId, tenantId: approval.tenantId, status: "waiting_approval", currentNodeId: approval.nodeId });
-    if (run) {
-      run.status = "failed";
-      run.lastError = "APPROVAL_EXPIRED: Human approval deadline elapsed.";
-      run.completedAt = now;
-      run.set("steps", run.steps.map(step => step.nodeId === approval.nodeId ? { ...step.toObject(), status: "failed", completedAt: now, error: "Human approval deadline elapsed." } : step));
-      await run.save();
+  for (const candidate of expired) {
+    const session = await mongoose.startSession();
+    let didExpire = false;
+    try {
+      await session.withTransaction(async () => {
+        const approval = await Approval.findOneAndUpdate(
+          { _id: candidate._id, tenantId: candidate.tenantId, status: "pending", dueAt: { $lte: now } },
+          { $set: { status: "expired", decidedAt: now, decisionComment: "Approval deadline elapsed." } },
+          { new: true, session }
+        );
+        if (!approval) return;
+        const run = await ExecutionRun.findOne({
+          _id: approval.runId, tenantId: approval.tenantId, status: "waiting_approval", currentNodeId: approval.nodeId
+        }).session(session);
+        if (run) {
+          run.status = "failed";
+          run.lastError = "APPROVAL_EXPIRED: Human approval deadline elapsed.";
+          run.completedAt = now;
+          run.set("steps", run.steps.map(step => step.nodeId === approval.nodeId
+            ? { ...step.toObject(), status: "failed", completedAt: now, error: "Human approval deadline elapsed." }
+            : step));
+          await run.save({ session });
+        }
+        didExpire = true;
+      });
+    } finally {
+      await session.endSession();
     }
-    await writeAuditEvent({ tenantId: String(approval.tenantId), action: "approval.expired", resourceType: "approval", resourceId: String(approval._id), metadata: { runId: String(approval.runId), nodeId: approval.nodeId } });
+    if (didExpire) {
+      await writeAuditEvent({
+        tenantId: String(candidate.tenantId), action: "approval.expired",
+        resourceType: "approval", resourceId: String(candidate._id),
+        metadata: { runId: String(candidate.runId), nodeId: candidate.nodeId }
+      });
+    }
   }
 }
 
