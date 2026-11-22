@@ -29,3 +29,17 @@ test("provider errors do not leak response bodies or API keys",async()=>{
 test("unsupported providers fail closed",async()=>{
  await assert.rejects(()=>new AgentProviderExecutor(resolver).execute({...config,provider:"bedrock"},{}),(error:unknown)=>error instanceof ProviderExecutionError&&error.code==="PROVIDER_UNSUPPORTED");
 });
+
+test("Anthropic adapter extracts text and token usage", async()=>{
+ const fakeFetch:typeof fetch=async(_url,init)=>{assert.equal(new Headers(init?.headers).get("anthropic-version"),"2023-06-01");return new Response(JSON.stringify({content:[{type:"text",text:"anthropic answer"}],usage:{input_tokens:7,output_tokens:3}}),{status:200});};
+ const result=await new AgentProviderExecutor(resolver,fakeFetch).execute({...config,provider:"anthropic"}, {question:"hi"});
+ assert.equal(result.text,"anthropic answer");assert.equal(result.usage.inputTokens,7);assert.equal(result.usage.outputTokens,3);
+});
+
+test("Google adapter extracts candidate text and usage metadata", async()=>{
+ let target="";
+ const fakeFetch:typeof fetch=async(url)=>{target=String(url);return new Response(JSON.stringify({candidates:[{content:{parts:[{text:"google answer"}]}}],usageMetadata:{promptTokenCount:9,candidatesTokenCount:5}}),{status:200});};
+ const result=await new AgentProviderExecutor(resolver,fakeFetch).execute({...config,provider:"google"}, {question:"hi"});
+ assert.equal(new URL(target).pathname,"/v1beta/models/gpt-test:generateContent");assert.equal(new URL(target).searchParams.get("key"),"test-api-key-123");
+ assert.equal(result.text,"google answer");assert.equal(result.usage.inputTokens,9);assert.equal(result.usage.outputTokens,5);
+});
