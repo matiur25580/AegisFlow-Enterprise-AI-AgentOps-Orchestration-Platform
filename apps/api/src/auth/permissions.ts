@@ -15,6 +15,8 @@ export const permissions = [
   "policies:manage",
   "audit:read",
   "billing:read",
+  "costs:read",
+  "costs:manage",
   "evaluations:read",
   "evaluations:write",
   "evaluations:run",
@@ -29,7 +31,7 @@ const rolePermissions: Record<Role, readonly Permission[]> = {
   owner: permissions,
   admin: permissions.filter(permission => permission !== "billing:read"),
   operator: ["workspace:read", "agents:read", "agents:write", "workflows:read", "workflows:write", "runs:read", "runs:operate", "approvals:read", "approvals:decide", "evaluations:read", "evaluations:write", "evaluations:run"],
-  viewer: ["workspace:read", "members:read", "agents:read", "workflows:read", "runs:read", "approvals:read", "policies:read", "audit:read", "billing:read", "evaluations:read"]
+  viewer: ["workspace:read", "members:read", "agents:read", "workflows:read", "runs:read", "approvals:read", "policies:read", "audit:read", "billing:read", "costs:read", "evaluations:read"]
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {
