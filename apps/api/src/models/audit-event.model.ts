@@ -12,4 +12,7 @@ const auditEventSchema = new Schema({
 }, { timestamps: { createdAt: true, updatedAt: false }, versionKey: false });
 
 auditEventSchema.index({ tenantId: 1, createdAt: -1 });
+auditEventSchema.index({ tenantId: 1, action: 1, createdAt: -1 });
+auditEventSchema.index({ tenantId: 1, resourceType: 1, createdAt: -1 });
+auditEventSchema.index({ tenantId: 1, actorUserId: 1, createdAt: -1 });
 export const AuditEvent = model("AuditEvent", auditEventSchema);

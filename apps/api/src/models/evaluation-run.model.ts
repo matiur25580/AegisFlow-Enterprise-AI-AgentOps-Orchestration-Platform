@@ -9,6 +9,15 @@ const evaluationResultSchema = new Schema({
   score: { type: Number, min: 0, max: 1, required: true }
 }, { _id: false });
 
+const evaluationGateSchema = new Schema({
+  status: { type: String, enum: ["passed", "blocked"], required: true },
+  minScore: { type: Number, min: 0, max: 100, required: true },
+  maxRegressionPoints: { type: Number, min: 0, max: 100, required: true },
+  previousScore: { type: Number, min: 0, max: 100, default: null },
+  regressionPoints: { type: Number, min: 0, max: 100, default: null },
+  reasons: { type: [{ type: String, maxlength: 300 }], default: [] }
+}, { _id: false });
+
 const evaluationRunSchema = new Schema({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, immutable: true },
   suiteId: { type: Schema.Types.ObjectId, ref: "EvaluationSuite", required: true, immutable: true },
@@ -20,6 +29,7 @@ const evaluationRunSchema = new Schema({
   totalCases: { type: Number, required: true },
   passedCases: { type: Number, required: true },
   score: { type: Number, min: 0, max: 100, required: true },
+  gate: { type: evaluationGateSchema, required: true },
   results: { type: [evaluationResultSchema], default: [] }
 }, { timestamps: true, versionKey: false });
 
