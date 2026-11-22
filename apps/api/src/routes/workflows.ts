@@ -26,7 +26,7 @@ const nodeSchema = z.object({
   type: z.enum(["start", "agent", "condition", "approval", "end"]),
   label: z.string().trim().min(1).max(120),
   position: z.object({ x: z.number().finite().min(-100000).max(100000), y: z.number().finite().min(-100000).max(100000) }),
-  config: z.record(z.unknown()).default({})
+  config: z.record(z.string(), z.unknown()).default({})
 });
 const edgeSchema = z.object({
   id: z.string().trim().min(1).max(80),
