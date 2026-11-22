@@ -1,7 +1,7 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { env } from "../config/env.js";
 import { Secret } from "../models/secret.model.js";
 import { ProviderExecutionError, type SecretResolver, type SupportedProvider } from "./types.js";
+import { decryptWithKey, encryptWithKey, type EncryptedValue } from "./secret-crypto.js";
 
 function encryptionKey(): Buffer {
   const value = env.SECRETS_ENCRYPTION_KEY;
@@ -10,18 +10,16 @@ function encryptionKey(): Buffer {
   }
   return Buffer.from(value, "hex");
 }
-export function encryptSecret(plaintext: string): { ciphertext: string; iv: string; authTag: string } {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
-  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  return { ciphertext: ciphertext.toString("base64"), iv: iv.toString("base64"), authTag: cipher.getAuthTag().toString("base64") };
+export function encryptSecret(plaintext: string): EncryptedValue {
+  try { return encryptWithKey(plaintext, encryptionKey()); }
+  catch (error) {
+    if (error instanceof ProviderExecutionError) throw error;
+    throw new ProviderExecutionError("Provider credentials could not be encrypted.", "SECRET_ENCRYPTION_FAILED");
+  }
 }
-function decryptSecret(value: { ciphertext: string; iv: string; authTag: string }): string {
-  try {
-    const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(value.iv, "base64"));
-    decipher.setAuthTag(Buffer.from(value.authTag, "base64"));
-    return Buffer.concat([decipher.update(Buffer.from(value.ciphertext, "base64")), decipher.final()]).toString("utf8");
-  } catch {
+function decryptSecret(value: EncryptedValue): string {
+  try { return decryptWithKey(value, encryptionKey()); }
+  catch {
     throw new ProviderExecutionError("Stored provider credentials could not be decrypted.", "SECRET_DECRYPTION_FAILED");
   }
 }
