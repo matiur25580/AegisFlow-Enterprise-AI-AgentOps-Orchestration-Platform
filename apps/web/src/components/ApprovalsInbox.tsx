@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Activity, Check, CheckCircle2, CircleAlert, Clock3, LockKeyhole, LogIn, MessageSquare, RefreshCw, ShieldCheck, X } from "lucide-react";
 
 type ApprovalStatus = "pending" | "approved" | "rejected" | "expired" | "cancelled";
@@ -64,7 +64,7 @@ export default function ApprovalsInbox() {
 
   useEffect(() => { if (token) load().catch(error => setMessage(error.message)); }, [token, load]);
 
-  const signIn = async (event: React.FormEvent) => {
+  const signIn = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setAuthError("");
     try {
       const response = await fetch(`${API}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ email, password }) });
