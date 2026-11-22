@@ -99,7 +99,8 @@ runsRouter.post("/:runId/cancel", requirePermission("runs:operate"), asyncHandle
     await Approval.updateMany({ tenantId: auth.tenantId, runId, status: "pending" }, { $set: { status: "cancelled", decidedAt: new Date(), decisionComment: "Workflow run cancelled." } });
   }
   await audit(auth, "run.cancel_requested", runId);
-  res.json({ data: run });
+  const { agentSnapshots: _privateAgentSnapshots, ...safeRun } = run.toObject();
+  res.json({ data: safeRun });
 }));
 
 runsRouter.post("/:runId/retry", requirePermission("runs:operate"), asyncHandler(async (req, res) => {
@@ -114,5 +115,6 @@ runsRouter.post("/:runId/retry", requirePermission("runs:operate"), asyncHandler
     nextAttemptAt: new Date(), retryOf: source._id
   });
   await audit(auth, "run.retried", String(retry._id), { retryOf: runId });
-  res.status(202).json({ data: retry });
+  const { agentSnapshots: _privateAgentSnapshots, ...safeRetry } = retry.toObject();
+  res.status(202).json({ data: safeRetry });
 }));
