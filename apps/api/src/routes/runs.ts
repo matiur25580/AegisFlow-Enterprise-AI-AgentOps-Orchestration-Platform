@@ -62,7 +62,9 @@ runsRouter.post("/workflows/:workflowId/runs", requirePermission("runs:operate")
     nodes: version.nodes, edges: version.edges, agentSnapshots, status: "queued", idempotencyKey, requestedBy: auth.userId, nextAttemptAt: new Date()
   });
   await audit(auth, "run.queued", String(run._id), { workflowId, workflowVersion: version.version, graphHash: version.graphHash });
-  const responseRun = run.toObject();\n  delete responseRun.agentSnapshots;\n  res.status(202).json({ data: responseRun, idempotentReplay: false });
+  const responseRun = run.toObject();
+  delete responseRun.agentSnapshots;
+  res.status(202).json({ data: responseRun, idempotentReplay: false });
 }));
 
 runsRouter.get("/", requirePermission("runs:read"), asyncHandler(async (req, res) => {
