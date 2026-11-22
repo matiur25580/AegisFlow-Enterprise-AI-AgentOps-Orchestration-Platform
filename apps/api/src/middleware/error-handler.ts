@@ -26,7 +26,8 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _nex
 
   res.status(status >= 400 && status < 600 ? status : 500).json({
     error: {
-      code: "INTERNAL_ERROR",
+      code: typeof error === "object" && error !== null && "code" in error ? String((error as { code: unknown }).code) : "INTERNAL_ERROR",
+      ...(typeof error === "object" && error !== null && "details" in error ? { details: (error as { details: unknown }).details } : {}),
       message: env.NODE_ENV === "production" ? "An unexpected error occurred." : error instanceof Error ? error.message : "Unknown error"
     },
     requestId
