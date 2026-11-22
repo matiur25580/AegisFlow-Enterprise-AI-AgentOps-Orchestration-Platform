@@ -18,6 +18,10 @@ AegisFlow records provider-reported input/output token counts on agent execution
 
 The overview includes input/output tokens, estimated USD, per-model breakdown, priced/unpriced step counts, pricing coverage, and sampling metadata. All reads and writes are tenant-scoped from authenticated server context.
 
+## Workspace UI
+
+The React Usage & billing workspace is available from the Govern navigation. It supports sign-in, 24-hour/7-day/30-day cost summaries, per-model token and estimated-cost breakdowns, pricing coverage, and owner/admin model-rate configuration. The interface intentionally labels figures as estimates and shows when run sampling is active. Viewers can inspect cost summaries; only owners and admins can save rates.
+
 ## Estimate formula
 
 `(inputTokens × inputUsdPerMillionTokens + outputTokens × outputUsdPerMillionTokens) / 1,000,000`
