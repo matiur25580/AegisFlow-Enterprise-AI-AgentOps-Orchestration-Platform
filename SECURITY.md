@@ -1,19 +1,21 @@
-# Security policy
+# Security Policy
 
 ## Reporting
 
-Please do not publish exploitable vulnerabilities in public issues. Contact the repository owner privately through GitHub to coordinate a responsible disclosure.
+Do not post credentials, private prompts, customer data, exploit details, or sensitive execution traces in public issues. Use GitHub's private vulnerability reporting channel when available. Provide affected components, impact, safe reproduction steps, and redacted evidence.
 
-## Development requirements
+## Security requirements
 
-- Never commit credentials, production data, private keys, or real environment files.
-- Validate untrusted input at API boundaries.
-- Derive tenant scope from authenticated server-side identity; do not trust client-provided tenant IDs.
-- Apply least-privilege authorization on every protected operation.
-- Keep logs free of credentials, tokens, and sensitive payloads.
-- Use bounded request sizes, dependency timeouts, and safe error responses.
-- Add tests for authorization boundaries and cross-tenant isolation before enabling a feature in production.
+- Treat agent instructions, tool outputs, retrieved documents, and external events as untrusted input.
+- Enforce tenant isolation and server-side authorization for every agent, run, secret, and artifact.
+- Apply least privilege and explicit allowlists to tools and external actions.
+- Require human approval for high-impact or irreversible actions.
+- Isolate agent execution from control-plane credentials and other tenants.
+- Apply time, token, cost, concurrency, and retry budgets to every run.
+- Redact secrets and sensitive payloads from logs, traces, and model context where possible.
+- Record actor, policy version, tool calls, approvals, and outcomes in auditable run history.
+- Never treat model output as proof that an action succeeded or a policy was satisfied.
 
-## Current status
+## Project status
 
-This repository is in its foundation milestone. Authentication, authorization, tenant isolation, and audit controls are not yet complete. Do not expose this preview as a production service.
+AegisFlow is in its foundation phase. This policy describes intended safeguards, not implemented or independently verified controls.
