@@ -62,7 +62,7 @@ runsRouter.post("/workflows/:workflowId/runs", requirePermission("runs:operate")
     nodes: version.nodes, edges: version.edges, agentSnapshots, status: "queued", idempotencyKey, requestedBy: auth.userId, nextAttemptAt: new Date()
   });
   await audit(auth, "run.queued", String(run._id), { workflowId, workflowVersion: version.version, graphHash: version.graphHash });
-  res.status(202).json({ data: run, idempotentReplay: false });
+  const responseRun = run.toObject();\n  delete responseRun.agentSnapshots;\n  res.status(202).json({ data: responseRun, idempotentReplay: false });
 }));
 
 runsRouter.get("/", requirePermission("runs:read"), asyncHandler(async (req, res) => {
@@ -73,7 +73,7 @@ runsRouter.get("/", requirePermission("runs:read"), asyncHandler(async (req, res
   if (typeof req.query.status === "string" && ["queued", "running", "waiting_approval", "succeeded", "failed", "cancelled"].includes(req.query.status)) filter.status = req.query.status;
   if (typeof req.query.workflowId === "string") filter.workflowId = idSchema.parse(req.query.workflowId);
   const [items, total] = await Promise.all([
-    ExecutionRun.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select("-nodes -edges").lean(),
+    ExecutionRun.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select("-nodes -edges -agentSnapshots").lean(),
     ExecutionRun.countDocuments(filter)
   ]);
   res.json({ data: items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
@@ -82,7 +82,7 @@ runsRouter.get("/", requirePermission("runs:read"), asyncHandler(async (req, res
 runsRouter.get("/:runId", requirePermission("runs:read"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const runId = idSchema.parse(req.params.runId);
-  const run = await ExecutionRun.findOne({ _id: runId, tenantId: auth.tenantId }).lean();
+  const run = await ExecutionRun.findOne({ _id: runId, tenantId: auth.tenantId }).select("-agentSnapshots").lean();
   if (!run) { res.status(404).json({ error: { code: "RUN_NOT_FOUND", message: "Execution run not found." } }); return; }
   res.json({ data: run });
 }));
@@ -108,7 +108,7 @@ runsRouter.post("/:runId/retry", requirePermission("runs:operate"), asyncHandler
   if (!source) { res.status(409).json({ error: { code: "RUN_NOT_RETRYABLE", message: "Only failed runs can be retried." } }); return; }
   const retry = await ExecutionRun.create({
     tenantId: source.tenantId, workflowId: source.workflowId, workflowVersion: source.workflowVersion, graphHash: source.graphHash,
-    nodes: source.nodes, edges: source.edges, status: "queued", idempotencyKey: `retry:${runId}:${randomUUID()}`,
+    nodes: source.nodes, edges: source.edges, agentSnapshots: source.agentSnapshots, status: "queued", idempotencyKey: `retry:${runId}:${randomUUID()}`,
     requestedBy: auth.userId, currentNodeId: source.currentNodeId, steps: source.steps.filter(step => step.status === "succeeded"),
     nextAttemptAt: new Date(), retryOf: source._id
   });
