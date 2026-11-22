@@ -1,8 +1,8 @@
 # AegisFlow API
 
-## Identity endpoints
+All API routes are mounted below `/api/v1`.
 
-All routes are mounted below `/api/v1`.
+## Identity and workspace
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
@@ -14,9 +14,47 @@ All routes are mounted below `/api/v1`.
 | GET | `/workspace/summary` | Permission-protected tenant context |
 | GET | `/workspace/audit-events` | Tenant-scoped audit events |
 
-Signup requires an organization name, display name, email, and a 12+ character password containing lowercase, uppercase, and numeric characters. Access tokens are short-lived JWTs returned in the response body. Refresh tokens are opaque random values stored only as SHA-256 hashes and delivered in an HttpOnly, SameSite=Strict cookie.
+Protected requests require `Authorization: Bearer <access-token>`. Tenant identity is derived exclusively from the verified membership and is never accepted from request input.
 
-Protected requests require `Authorization: Bearer <access-token>`. The API re-checks user status, tenant status, active membership, and refresh-session state against MongoDB for each protected request. Tenant identity is never accepted from a request header or body.
+## Agent registry and lifecycle
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/agents?page=1&limit=25&status=draft&search=...` | `agents:read` | Tenant-scoped, paginated registry |
+| POST | `/agents` | `agents:write` | Create agent and immutable initial version |
+| GET | `/agents/:agentId` | `agents:read` | Agent detail and version history |
+| GET | `/agents/:agentId/versions` | `agents:read` | Immutable version history |
+| POST | `/agents/:agentId/versions` | `agents:write` | Create a new version snapshot |
+| POST | `/agents/:agentId/versions/:version/promote` | `agents:write` | Promote or roll back to a version |
+| PATCH | `/agents/:agentId/lifecycle` | `agents:write` | Deprecate or archive an agent |
+
+Agent creation body:
+
+```json
+{
+  "name": "Invoice Extraction Agent",
+  "slug": "invoice-extraction",
+  "description": "Extracts structured invoice data",
+  "team": "finance-automation",
+  "tags": ["finance", "document-ai"],
+  "provider": "openai",
+  "model": "gpt-4.1",
+  "secretRef": "vault:production/openai/invoice-agent",
+  "version": {
+    "changelog": "Initial production candidate",
+    "systemPrompt": "Extract invoice fields and return valid JSON.",
+    "temperature": 0.1,
+    "maxOutputTokens": 4096,
+    "timeoutMs": 45000,
+    "tools": ["document.read"],
+    "responseFormat": "json"
+  }
+}
+```
+
+Never send raw API keys or credentials to the registry. `secretRef` accepts a reference URI for a future secrets-manager adapter; this milestone does not resolve or retrieve secrets. Version snapshots are immutable at the Mongoose schema level. Promotion changes only the agent's active-version pointer and lifecycle state, so rollback is a promotion of a prior version rather than an edit.
+
+Every registry query filters by the authenticated tenant. Agent and version creation, promotion, deprecation and archival write tenant-scoped audit events. Archived agents cannot be promoted or versioned; lifecycle changes are intentionally one-way from archived.
 
 ## Role baseline
 
@@ -25,8 +63,8 @@ Protected requests require `Authorization: Bearer <access-token>`. The API re-ch
 - `operator`: agent/workflow operations, run operations and approval decisions
 - `viewer`: read-only workspace, agent, workflow, run, policy, audit and billing access
 
-Permission checks are explicit and deny by default. Add new routes behind `authenticate` and `requirePermission`.
+Permission checks deny by default.
 
-## Important limitations
+## Security and operational limitations
 
-This is the initial identity milestone, not a complete production certification. Signup currently creates one owner and one workspace; invitations, password reset, MFA, SSO, billing and organization switching are future work. Refresh rotation uses atomic single-session replacement; deploy MongoDB with TLS, backups and appropriate replica-set configuration before production use.
+This is an evolving platform foundation, not a production certification. Invitations, password reset, MFA, SSO, billing, organization switching, external secret-manager resolution, agent execution, and automated database-backed integration tests remain future milestones. Use TLS, managed secrets, backups, replica-set deployment, monitoring and a reviewed retention policy before production use.

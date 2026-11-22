@@ -11,6 +11,7 @@ import { authRateLimit } from "./middleware/auth-rate-limit.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
 import { workspaceRouter } from "./routes/workspace.js";
+import { agentsRouter } from "./routes/agents.js";
 
 export const app = express();
 
@@ -27,10 +28,11 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/", (_req, res) => res.json({ name: "AegisFlow API", version: "0.2.0", docs: "See apps/api/README.md." }));
+app.get("/", (_req, res) => res.json({ name: "AegisFlow API", version: "0.3.0", docs: "See apps/api/README.md." }));
 app.use("/health", healthRouter);
 app.use(env.API_PREFIX, healthRouter);
 app.use(`${env.API_PREFIX}/auth`, authRateLimit, authRouter);
 app.use(`${env.API_PREFIX}/workspace`, workspaceRouter);
+app.use(`${env.API_PREFIX}/agents`, agentsRouter);
 app.use(notFound);
 app.use(errorHandler);
