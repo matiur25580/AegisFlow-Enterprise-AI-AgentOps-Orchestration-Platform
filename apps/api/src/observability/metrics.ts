@@ -54,7 +54,7 @@ export function buildRunOverview(
       else if (run.status === "queued") bucket.queued += 1;
     }
 
-    if (run.status in counts) counts[run.status as keyof typeof counts] += 1;
+    if (Object.hasOwn(counts, run.status)) counts[run.status as keyof typeof counts] += 1;
     if (run.status === "succeeded" || run.status === "failed" || run.status === "cancelled") {
       const startedAt = asDate(run.startedAt);
       const completedAt = asDate(run.completedAt);
