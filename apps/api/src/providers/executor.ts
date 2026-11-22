@@ -3,6 +3,7 @@ import { ProviderExecutionError, type AgentProviderConfig, type ProviderResult, 
 
 type FetchLike = typeof fetch;
 type JsonRecord = Record<string, unknown>;
+type ProviderRequest = { url: string; headers: Record<string, string>; body: string };
 const endpoints: Record<SupportedProvider, string> = {
   openai: "https://api.openai.com/v1/chat/completions",
   anthropic: "https://api.anthropic.com/v1/messages",
