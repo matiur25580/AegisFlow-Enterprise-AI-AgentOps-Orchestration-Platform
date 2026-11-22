@@ -21,6 +21,8 @@ AegisFlow records provider-reported input/output token counts on agent execution
 - `GET /api/v1/budgets` — list tenant policies with current-month estimated spend, remaining amount, utilization, warning and exceeded states.
 - `PUT /api/v1/budgets` — create or update a policy.
 - `DELETE /api/v1/budgets/:scopeType?scopeValue=...` — remove a policy.
+- `GET /api/v1/budget-alerts?limit=50` — evaluate current monthly usage and list persistent alert history.
+- `PATCH /api/v1/budget-alerts/:alertId/read` — mark one tenant-owned alert as read.
 
 Example tenant-wide policy:
 
@@ -44,30 +46,11 @@ Policies use UTC calendar months. Each policy has a USD monthly limit, a warning
 
 Budget usage is calculated from recorded provider token usage using the current configured model rates. Agent scope is attributed through the run's private pinned agent snapshot and matching node ID. The API samples at most 5,000 recent monthly runs and reports the sampled flag. Unknown model rates are excluded from estimated spend, so configure rate cards before relying on budget utilization.
 
+## Persistent in-app budget alerts
 
+The budget alert evaluator runs when the authenticated alert-history endpoint is read. It evaluates enabled policies against the current UTC month and persists a warning event once the configured warning threshold is crossed, or an exceeded event once spend reaches the limit. A unique tenant + policy + month + event key prevents duplicate records on repeated reads. Alerts capture the observed estimated spend, limit, utilization, threshold, scope and period at creation time. The alert history is tenant-isolated; viewers and operators can read and mark alerts as read.
 
-## Budget governance and admission controls
-
-| Method | Endpoint | Permission | Purpose |
-| --- | --- | --- | --- |
-| GET | `/budgets` | `budgets:read` | List monthly policies and estimated utilization |
-| PUT | `/budgets` | `budgets:manage` | Upsert tenant, agent or model monthly policy |
-| DELETE | `/budgets/:scopeType?scopeValue=...` | `budgets:manage` | Delete a policy |
-
-Budget body example:
-
-```json
-{
-  "scopeType": "tenant",
-  "scopeValue": "*",
-  "monthlyLimitUsd": 500,
-  "warningThresholdPercent": 80,
-  "enforcement": "hard",
-  "enabled": true
-}
-```
-
-Supported scopes are tenant (`*`), agent (tenant-owned agent ID), and model (`provider/model`). Budgets use UTC calendar months and current configured rates. Hard policies reject new run admission with HTTP 429 / `BUDGET_LIMIT_REACHED` when observed spend is at or above the cap. If the accounting sample reaches 5,000 runs, admission fails closed with HTTP 503 / `BUDGET_USAGE_INCOMPLETE`. This is best-effort admission control: in-flight work and concurrent admission races can still exceed the configured amount. Persistent alerts and atomic spend reservations remain future work.
+If the 5,000-run sample is saturated, the evaluator deliberately skips alert creation because the sampled total may understate actual spend. The response exposes `sampleSaturated` so clients can display that limitation. A warning is only created if the observed state is warning-but-not-exceeded; if usage jumps directly beyond the cap, the evaluator records the exceeded event. External email/webhook delivery, automatic push notifications, recovery events, scheduled background evaluation and atomic spend reservations remain future work. This is an in-app persisted event history, not a real-time delivery guarantee.
 
 ## Estimate formula
 
@@ -75,18 +58,10 @@ Supported scopes are tenant (`*`), agent (tenant-owned agent ID), and model (`pr
 
 ## Important limitations
 
-These are estimates, not provider invoices. The current implementation applies the currently configured rate card to all selected historical runs. It does not retain immutable price snapshots, so editing a rate can revise historical estimates. Provider cached-token pricing, batch discounts, tool/image/audio charges, taxes, FX, and billing-grade reconciliation are not included. Budget threshold states are derived on read; persistent alert delivery, atomic spend reservations and strict concurrent hard-cap enforcement are future work. Concurrent run admissions can race before either run records provider usage. Hard policies therefore provide a best-effort admission gate, not a guaranteed billing ceiling. The 5,000-run sample limit means large tenants should treat sampled budget totals as lower-bound operational estimates; hard admission fails closed when the window is saturated.
-
+These are estimates, not provider invoices. The current implementation applies the currently configured rate card to all selected historical runs. It does not retain immutable price snapshots, so editing a rate can revise historical estimates. Provider cached-token pricing, batch discounts, tool/image/audio charges, taxes, FX, and billing-grade reconciliation are not included. Budget threshold states are derived from current usage. Concurrent run admissions can race before either run records provider usage. Hard policies therefore provide a best-effort admission gate, not a guaranteed billing ceiling. The 5,000-run sample limit means large tenants should treat sampled budget totals as lower-bound operational estimates; hard admission fails closed when the window is saturated.
 
 ## Budget Management workspace
 
-The React navigation entry **Govern → Budgets** provides a browser interface for:
-- Listing tenant, agent and model policies.
-- Displaying estimated spend, monthly limit, remaining amount, utilization progress, warning and exceeded states.
-- Creating and editing monthly limits, warning thresholds, enforcement mode and enabled state.
-- Deleting a policy after confirmation.
-- Refreshing usage and showing when the 5,000-run accounting sample is saturated.
-
-The screen uses the authenticated API session and refresh-cookie flow. Owner/admin can mutate policies; operator/viewer can inspect them. The backend remains authoritative for authorization. Agent policies require the agent MongoDB ID; model policies use `provider/model`. A tenant-wide policy uses `*`.
+The React navigation entry **Govern → Budgets** provides a browser interface for listing tenant, agent and model policies; displaying estimated spend and utilization; creating, editing and deleting policies; and showing when the 5,000-run accounting sample is saturated. The screen uses the authenticated API session and refresh-cookie flow. Backend permissions remain authoritative.
 
 The enabled monthly-limit KPI sums configured limits across scopes and is not a unique workspace cap. Estimates are not invoices. Hard enforcement remains best-effort admission control; it is not a strict billing ceiling.
