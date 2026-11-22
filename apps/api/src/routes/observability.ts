@@ -44,7 +44,7 @@ observabilityRouter.get("/runs/:runId/trace", requirePermission("runs:read"), as
   const auth = res.locals.auth as AuthContext;
   const runId = z.string().regex(/^[a-f\d]{24}$/i).parse(req.params.runId);
   const run = await ExecutionRun.findOne({ _id: runId, tenantId: auth.tenantId })
-    .select("-nodes -edges -leaseToken -leaseExpiresAt -cancelRequestedAt -idempotencyKey")
+    .select("-nodes -edges -agentSnapshots -leaseToken -leaseExpiresAt -cancelRequestedAt -idempotencyKey")
     .lean();
   if (!run) {
     res.status(404).json({ error: { code: "RUN_NOT_FOUND", message: "Execution run was not found in this workspace." } });
@@ -65,6 +65,13 @@ observabilityRouter.get("/runs/:runId/trace", requirePermission("runs:read"), as
       startedAt: step.startedAt,
       completedAt: step.completedAt,
       durationMs,
+      providerUsage: step.providerUsage ? {
+        inputTokens: step.providerUsage.inputTokens ?? null,
+        outputTokens: step.providerUsage.outputTokens ?? null,
+        provider: step.providerUsage.provider ?? null,
+        model: step.providerUsage.model ?? null,
+        providerDurationMs: step.providerUsage.durationMs ?? null
+      } : null,
       errorCode
     };
   });
