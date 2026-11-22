@@ -2,6 +2,7 @@ import { BudgetPolicy } from "../models/budget-policy.model.js";
 import { BudgetAlert } from "../models/budget-alert.model.js";
 import { getTenantBudgetUsage } from "./budget-usage.js";
 import { budgetState } from "./budget-governance.js";
+import { budgetAlertDedupeKey, classifyBudgetAlert } from "./budget-alert-policy.js";
 
 export async function evaluateBudgetAlerts(tenantId: string, now = new Date()) {
   const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -17,10 +18,10 @@ export async function evaluateBudgetAlerts(tenantId: string, now = new Date()) {
   for (const policy of policies) {
     const spend = usage.totals.get(policy.scopeType + ":" + policy.scopeValue) ?? 0;
     const state = budgetState(spend, policy);
-    const eventType = state.exceeded ? "exceeded" : state.warning ? "warning" : null;
+    const eventType = classifyBudgetAlert(state);
     if (!eventType) continue;
 
-    const dedupeKey = [String(policy._id), periodStart.toISOString(), eventType].join(":");
+    const dedupeKey = budgetAlertDedupeKey(String(policy._id), periodStart, eventType);
     try {
       const result = await BudgetAlert.updateOne(
         { tenantId, dedupeKey },
