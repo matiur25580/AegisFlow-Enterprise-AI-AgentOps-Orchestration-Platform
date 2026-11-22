@@ -56,7 +56,7 @@ async function audit(req: Request, auth: AuthContext, action: string, workflowId
 
 async function validateGraph(nodes: WorkflowNodeInput[], edges: WorkflowEdgeInput[], tenantId: string) {
   const issues = validateWorkflowGraph(nodes, edges);
-  const agentIds = [...new Set(nodes.filter(node => node.type === "agent").map(node => node.config.agentId).filter((id): id is string => typeof id === "string" && /^[a-f\\d]{24}$/i.test(id)))];
+  const agentIds = [...new Set(nodes.filter(node => node.type === "agent").map(node => node.config.agentId).filter((id): id is string => typeof id === "string" && /^[a-f\d]{24}$/i.test(id)))];
   if (agentIds.length) {
     const existing = await Agent.find({ tenantId, _id: { $in: agentIds }, status: { $ne: "archived" } }).select("_id").lean();
     const found = new Set(existing.map(agent => String(agent._id)));
