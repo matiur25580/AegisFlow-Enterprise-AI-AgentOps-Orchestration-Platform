@@ -12,6 +12,7 @@ import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
 import { workspaceRouter } from "./routes/workspace.js";
 import { agentsRouter } from "./routes/agents.js";
+import { workflowsRouter } from "./routes/workflows.js";
 
 export const app = express();
 
@@ -34,5 +35,6 @@ app.use(env.API_PREFIX, healthRouter);
 app.use(`${env.API_PREFIX}/auth`, authRateLimit, authRouter);
 app.use(`${env.API_PREFIX}/workspace`, workspaceRouter);
 app.use(`${env.API_PREFIX}/agents`, agentsRouter);
+app.use(`${env.API_PREFIX}/workflows`, workflowsRouter);
 app.use(notFound);
 app.use(errorHandler);
