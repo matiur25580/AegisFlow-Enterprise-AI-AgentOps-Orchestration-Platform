@@ -7,8 +7,8 @@ const config: AgentProviderConfig = { tenantId:"tenant-a",provider:"openai",mode
 const resolver: SecretResolver = { resolve: async ({tenantId,secretRef}) => { assert.equal(tenantId,"tenant-a");assert.equal(secretRef,"vault:tenant-a/openai");return "test-api-key-123"; } };
 
 test("OpenAI adapter sends bounded request and returns usage without exposing credentials", async()=>{
- let captured: {url:string;init:RequestInit}|null=null;
- const fakeFetch: typeof fetch=async(url,init)=>{captured={url:String(url),init:init??{}};return new Response(JSON.stringify({choices:[{message:{content:"hello"}}],usage:{prompt_tokens:10,completion_tokens:4}}),{status:200,headers:{"content-type":"application/json"}});};
+ const captured: {value?: {url:string;init:RequestInit}} = {};
+ const fakeFetch: typeof fetch=async(url,init)=>{captured.value={url:String(url),init:init??{}};return new Response(JSON.stringify({choices:[{message:{content:"hello"}}],usage:{prompt_tokens:10,completion_tokens:4}}),{status:200,headers:{"content-type":"application/json"}});};
  const result=await new AgentProviderExecutor(resolver,fakeFetch).execute(config,{question:"hi"});
  assert.equal(result.text,"hello");assert.equal(result.usage.inputTokens,10);assert.equal(result.usage.outputTokens,4);
  assert.equal(captured?.url,"https://api.openai.com/v1/chat/completions");
