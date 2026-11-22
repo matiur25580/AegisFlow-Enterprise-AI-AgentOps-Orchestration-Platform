@@ -76,3 +76,17 @@ Supported scopes are tenant (`*`), agent (tenant-owned agent ID), and model (`pr
 ## Important limitations
 
 These are estimates, not provider invoices. The current implementation applies the currently configured rate card to all selected historical runs. It does not retain immutable price snapshots, so editing a rate can revise historical estimates. Provider cached-token pricing, batch discounts, tool/image/audio charges, taxes, FX, and billing-grade reconciliation are not included. Budget threshold states are derived on read; persistent alert delivery, atomic spend reservations and strict concurrent hard-cap enforcement are future work. Concurrent run admissions can race before either run records provider usage. Hard policies therefore provide a best-effort admission gate, not a guaranteed billing ceiling. The 5,000-run sample limit means large tenants should treat sampled budget totals as lower-bound operational estimates; hard admission fails closed when the window is saturated.
+
+
+## Budget Management workspace
+
+The React navigation entry **Govern → Budgets** provides a browser interface for:
+- Listing tenant, agent and model policies.
+- Displaying estimated spend, monthly limit, remaining amount, utilization progress, warning and exceeded states.
+- Creating and editing monthly limits, warning thresholds, enforcement mode and enabled state.
+- Deleting a policy after confirmation.
+- Refreshing usage and showing when the 5,000-run accounting sample is saturated.
+
+The screen uses the authenticated API session and refresh-cookie flow. Owner/admin can mutate policies; operator/viewer can inspect them. The backend remains authoritative for authorization. Agent policies require the agent MongoDB ID; model policies use `provider/model`. A tenant-wide policy uses `*`.
+
+The enabled monthly-limit KPI sums configured limits across scopes and is not a unique workspace cap. Estimates are not invoices. Hard enforcement remains best-effort admission control; it is not a strict billing ceiling.
