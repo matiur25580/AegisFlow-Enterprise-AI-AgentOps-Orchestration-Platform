@@ -60,7 +60,7 @@ export default function BudgetManagement() {
       if (response.status === 401) setToken("");
       throw new Error(body?.error?.message ?? "Request failed (" + response.status + ")");
     }
-    return body?.data;
+    return body;
   }, [token]);
 
   const load = useCallback(async () => {
