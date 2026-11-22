@@ -55,7 +55,7 @@ runsRouter.post("/workflows/:workflowId/runs", requirePermission("runs:operate")
   }
   const suppliedKey = req.header("Idempotency-Key");
   const idempotencyKey = suppliedKey ? keySchema.parse(suppliedKey) : randomUUID();
-  const existing = await ExecutionRun.findOne({ tenantId: auth.tenantId, workflowId, idempotencyKey }).lean();
+  const existing = await ExecutionRun.findOne({ tenantId: auth.tenantId, workflowId, idempotencyKey }).select("-agentSnapshots").lean();
   if (existing) { res.status(200).json({ data: existing, idempotentReplay: true }); return; }
   const run = await ExecutionRun.create({
     tenantId: auth.tenantId, workflowId, workflowVersion: version.version, graphHash: version.graphHash,
