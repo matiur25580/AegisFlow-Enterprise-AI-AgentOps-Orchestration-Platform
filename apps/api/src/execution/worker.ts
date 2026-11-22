@@ -180,12 +180,20 @@ export async function processNextExecution(): Promise<boolean> {
     { sort: { createdAt: 1 }, new: true }
   ).select("_id").lean();
   if (!claimed) return false;
+  const heartbeat = setInterval(() => {
+    void ExecutionRun.updateOne({ _id: claimed._id, leaseToken: token, status: "running" }, {
+      $set: { leaseExpiresAt: new Date(Date.now() + LEASE_MS) }
+    }).catch(error => logger.error({ err: error, runId: String(claimed._id) }, "Execution lease heartbeat failed"));
+  }, Math.floor(LEASE_MS / 3));
+  heartbeat.unref();
   try { await processClaim(String(claimed._id), token); }
   catch (error) {
     logger.error({ err: error, runId: String(claimed._id) }, "Workflow execution worker failed");
     await ExecutionRun.updateOne({ _id: claimed._id, leaseToken: token, status: "running" }, {
       $set: { status: "failed", lastError: error instanceof Error ? error.message : "Worker failure", completedAt: new Date(), leaseToken: null, leaseExpiresAt: null }
     });
+  } finally {
+    clearInterval(heartbeat);
   }
   return true;
 }
