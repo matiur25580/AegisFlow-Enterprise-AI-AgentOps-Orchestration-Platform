@@ -51,7 +51,7 @@ evaluationsRouter.get("/suites", requirePermission("evaluations:read"), asyncHan
 evaluationsRouter.post("/suites", requirePermission("evaluations:write"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const input = createSuiteSchema.parse(req.body);
-  let agent: { _id: unknown; activeVersion: number | null } | null = null;
+  let agent: { _id: unknown; activeVersion?: number | null } | null = null;
   if (input.agentId) {
     agent = await Agent.findOne({ _id: input.agentId, tenantId: auth.tenantId, status: "active", activeVersion: { $ne: null } }).select("_id activeVersion").lean();
     if (!agent) { res.status(409).json({ error: { code: "AGENT_NOT_EVALUABLE", message: "Select an active agent with an active version from this workspace." } }); return; }
