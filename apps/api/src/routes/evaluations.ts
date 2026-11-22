@@ -6,7 +6,7 @@ import { asyncHandler } from "../utils/async-handler.js";
 import { Agent } from "../models/agent.model.js";
 import { EvaluationSuite } from "../models/evaluation-suite.model.js";
 import { EvaluationRun } from "../models/evaluation-run.model.js";
-import { evaluateCases } from "../evaluation/evaluator.js";
+import { assessEvaluationGate, evaluateCases } from "../evaluation/evaluator.js";
 import { writeAuditEvent } from "../auth/audit.js";
 import type { AuthContext } from "../auth/types.js";
 
@@ -26,6 +26,10 @@ const createSuiteSchema = z.object({
   description: z.string().max(1000).default(""),
   agentId: idSchema.nullable().optional(),
   metric: z.enum(["exact_match", "contains"]).default("exact_match"),
+  releaseGate: z.object({
+    minScore: z.number().min(0).max(100).default(80),
+    maxRegressionPoints: z.number().min(0).max(100).default(10)
+  }).strict().default({ minScore: 80, maxRegressionPoints: 10 }),
   cases: z.array(caseSchema).min(1).max(200)
 }).superRefine((value, ctx) => {
   const ids = value.cases.map(item => item.caseId);
@@ -59,7 +63,7 @@ evaluationsRouter.post("/suites", requirePermission("evaluations:write"), asyncH
   const suite = await EvaluationSuite.create({
     tenantId: auth.tenantId, name: input.name, description: input.description,
     agentId: agent?._id ?? null, agentVersion: agent?.activeVersion ?? null,
-    metric: input.metric, cases: input.cases, createdBy: auth.userId
+    metric: input.metric, releaseGate: input.releaseGate, cases: input.cases, createdBy: auth.userId
   });
   await audit(auth, "evaluation.suite.created", String(suite._id), { caseCount: suite.cases.length, agentVersion: suite.agentVersion });
   res.status(201).json({ data: suite });
@@ -84,11 +88,20 @@ evaluationsRouter.post("/suites/:suiteId/runs", requirePermission("evaluations:r
   const unknown = input.results.find(item => !knownIds.has(item.caseId));
   if (unknown) { res.status(400).json({ error: { code: "UNKNOWN_EVALUATION_CASE", message: "A submitted case ID does not belong to this suite." } }); return; }
   const scored = evaluateCases(suite.cases, input.results, suite.metric);
+  const previousRun = await EvaluationRun.findOne({ tenantId: auth.tenantId, suiteId })
+    .sort({ createdAt: -1, _id: -1 }).select("score").lean();
+  const gatePolicy = suite.releaseGate ?? { minScore: 80, maxRegressionPoints: 10 };
+  const gate = assessEvaluationGate(scored.score, previousRun?.score ?? null, gatePolicy);
   const run = await EvaluationRun.create({
     tenantId: auth.tenantId, suiteId, suiteName: suite.name, metric: suite.metric,
-    agentId: suite.agentId, agentVersion: suite.agentVersion, submittedBy: auth.userId, ...scored
+    agentId: suite.agentId, agentVersion: suite.agentVersion, submittedBy: auth.userId,
+    ...scored, gate
   });
-  await audit(auth, "evaluation.run.completed", String(run._id), { suiteId, score: run.score, passedCases: run.passedCases, totalCases: run.totalCases, agentVersion: run.agentVersion });
+  await audit(auth, "evaluation.run.completed", String(run._id), {
+    suiteId, score: run.score, passedCases: run.passedCases, totalCases: run.totalCases,
+    agentVersion: run.agentVersion, releaseGateStatus: gate.status,
+    regressionPoints: gate.regressionPoints
+  });
   res.status(201).json({ data: run });
 }));
 
