@@ -1,10 +1,15 @@
 import { createHash } from "node:crypto";
+import mongoose from "mongoose";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { Workflow } from "../models/workflow.model.js";
 import { Agent } from "../models/agent.model.js";
 import { Membership } from "../models/membership.model.js";
 import { WorkflowVersion } from "../models/workflow-version.model.js";
+import { WorkflowPromotion } from "../models/workflow-promotion.model.js";
+import { EvaluationSuite } from "../models/evaluation-suite.model.js";
+import { EvaluationRun } from "../models/evaluation-run.model.js";
+import { assessWorkflowPromotion, type AgentPromotionEvidence } from "../workflows/promotion-governance.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { requirePermission } from "../middleware/authorize.js";
 import { asyncHandler } from "../utils/async-handler.js";
@@ -159,19 +164,106 @@ workflowsRouter.post("/:workflowId/versions", requirePermission("workflows:write
   res.status(201).json({ data: version });
 }));
 
+workflowsRouter.get("/:workflowId/promotions", requirePermission("workflows:read"), asyncHandler(async (req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const workflowId = idSchema.parse(req.params.workflowId);
+  const workflow = await Workflow.findOne({ _id: workflowId, tenantId: auth.tenantId }).select("_id").lean();
+  if (!workflow) { res.status(404).json({ error: { code: "WORKFLOW_NOT_FOUND", message: "Workflow not found." } }); return; }
+  const history = await WorkflowPromotion.find({ tenantId: auth.tenantId, workflowId }).sort({ promotedAt: -1 }).limit(50).lean();
+  res.json({ data: history });
+}));
+
 workflowsRouter.post("/:workflowId/versions/:version/promote", requirePermission("workflows:write"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const workflowId = idSchema.parse(req.params.workflowId);
   const versionNumber = z.coerce.number().int().min(1).parse(req.params.version);
   const version = await WorkflowVersion.findOne({ tenantId: auth.tenantId, workflowId, version: versionNumber }).lean();
   if (!version) { res.status(404).json({ error: { code: "VERSION_NOT_FOUND", message: "Workflow version not found." } }); return; }
-  const workflow = await Workflow.findOneAndUpdate(
-    { _id: workflowId, tenantId: auth.tenantId, status: { $ne: "archived" } },
-    { $set: { activeVersion: versionNumber, status: "published" } }, { new: true }
-  );
-  if (!workflow) { res.status(404).json({ error: { code: "WORKFLOW_NOT_FOUND_OR_LOCKED", message: "Workflow not found or archived." } }); return; }
-  await audit(req, auth, "workflow.version.promoted", workflowId, { version: versionNumber, graphHash: version.graphHash });
-  res.json({ data: workflow });
+
+  const nodes = version.nodes as Array<{ type?: string; config?: Record<string, unknown> }>;
+  const agentIds = [...new Set(nodes.filter(node => node.type === "agent")
+    .map(node => node.config?.agentId)
+    .filter((value): value is string => typeof value === "string" && /^[a-f\\d]{24}$/i.test(value)))];
+  const agents = agentIds.length
+    ? await Agent.find({ tenantId: auth.tenantId, _id: { $in: agentIds } }).select("_id activeVersion status").lean()
+    : [];
+  const agentById = new Map(agents.map(agent => [String(agent._id), agent]));
+  const requiredAgents = agentIds.map(agentId => {
+    const agent = agentById.get(agentId);
+    return { agentId, activeVersion: agent?.activeVersion ?? null, status: agent?.status ?? "missing" };
+  });
+  const activeVersionByAgent = new Map(requiredAgents.map(agent => [agent.agentId, agent.activeVersion]));
+  const suites = agentIds.length
+    ? await EvaluationSuite.find({ tenantId: auth.tenantId, agentId: { $in: agentIds } }).select("_id agentId agentVersion").lean()
+    : [];
+  const suiteToAgent = new Map<string, string>();
+  for (const suite of suites) {
+    const agentId = String(suite.agentId);
+    if (suite.agentVersion === activeVersionByAgent.get(agentId)) suiteToAgent.set(String(suite._id), agentId);
+  }
+  const suiteIds = [...suiteToAgent.keys()];
+  const runs = suiteIds.length
+    ? await EvaluationRun.find({ tenantId: auth.tenantId, suiteId: { $in: suiteIds } })
+      .sort({ createdAt: -1, _id: -1 }).select("_id suiteId score gate createdAt").lean()
+    : [];
+  const latestByAgent = new Map<string, AgentPromotionEvidence>();
+  for (const run of runs) {
+    const agentId = suiteToAgent.get(String(run.suiteId));
+    if (!agentId || latestByAgent.has(agentId)) continue;
+    const required = requiredAgents.find(agent => agent.agentId === agentId);
+    latestByAgent.set(agentId, {
+      agentId,
+      agentVersion: required?.activeVersion ?? null,
+      suiteId: String(run.suiteId),
+      runId: String(run._id),
+      score: run.score,
+      gateStatus: run.gate?.status === "passed" ? "passed" : "blocked",
+      evaluatedAt: run.createdAt
+    });
+  }
+  const assessment = assessWorkflowPromotion(requiredAgents, [...latestByAgent.values()]);
+  if (!assessment.eligible) {
+    res.status(409).json({
+      error: {
+        code: "WORKFLOW_PROMOTION_BLOCKED",
+        message: "Every agent in this workflow version must have a passing evaluation for its current active version.",
+        reasons: assessment.reasons
+      },
+      data: { eligible: false, agentEvidence: assessment.evidence }
+    });
+    return;
+  }
+
+  const promotedAt = new Date();
+  const session = await mongoose.startSession();
+  let promotedWorkflow: unknown = null;
+  let promotionRecord: unknown = null;
+  try {
+    await session.withTransaction(async () => {
+      const updated = await Workflow.findOneAndUpdate(
+        { _id: workflowId, tenantId: auth.tenantId, status: { $ne: "archived" } },
+        { $set: { activeVersion: versionNumber, status: "published" } },
+        { new: true, session }
+      );
+      if (!updated) return;
+      const [record] = await WorkflowPromotion.create([{
+        tenantId: auth.tenantId, workflowId, workflowVersion: versionNumber,
+        graphHash: version.graphHash, promotedBy: auth.userId, promotedAt,
+        agentEvidence: assessment.evidence
+      }], { session });
+      promotedWorkflow = updated;
+      promotionRecord = record;
+    });
+  } finally {
+    await session.endSession();
+  }
+  if (!promotedWorkflow) { res.status(404).json({ error: { code: "WORKFLOW_NOT_FOUND_OR_LOCKED", message: "Workflow not found or archived." } }); return; }
+  await audit(req, auth, "workflow.version.promoted", workflowId, {
+    version: versionNumber, graphHash: version.graphHash,
+    evaluatedAgentCount: assessment.evidence.length,
+    evaluationRunIds: assessment.evidence.map(item => item.runId)
+  });
+  res.json({ data: { workflow: promotedWorkflow, promotion: promotionRecord } });
 }));
 
 workflowsRouter.patch("/:workflowId/lifecycle", requirePermission("workflows:write"), asyncHandler(async (req, res) => {
