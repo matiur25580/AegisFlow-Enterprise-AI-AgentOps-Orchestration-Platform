@@ -61,7 +61,7 @@ export function validateWorkflowGraph(nodes: WorkflowNodeInput[], edges: Workflo
       if (config.assigneeUserId !== undefined && (typeof config.assigneeUserId !== "string" || !/^[a-f\d]{24}$/i.test(config.assigneeUserId))) {
         issues.push({ code: "APPROVAL_ASSIGNEE_INVALID", message: `Approval node "${node.id}" has an invalid assigneeUserId.`, nodeId: node.id });
       }
-      if (config.timeoutMinutes !== undefined && (!Number.isInteger(config.timeoutMinutes) || Number(config.timeoutMinutes) < 1 || Number(config.timeoutMinutes) > 10080)) {
+      if (config.timeoutMinutes !== undefined && (typeof config.timeoutMinutes !== "number" || !Number.isInteger(config.timeoutMinutes) || config.timeoutMinutes < 1 || config.timeoutMinutes > 10080)) {
         issues.push({ code: "APPROVAL_TIMEOUT_INVALID", message: `Approval node "${node.id}" timeoutMinutes must be an integer from 1 to 10080.`, nodeId: node.id });
       }
     }
