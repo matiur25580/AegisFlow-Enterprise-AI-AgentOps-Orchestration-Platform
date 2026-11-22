@@ -180,3 +180,14 @@ Pricing body:
 ```
 
 Rates are tenant-configured USD per one million input/output tokens. AegisFlow does not hardcode provider prices or silently assume a rate for unknown models. The overview calculates estimates from provider-reported usage and the currently configured rate card, reports unpriced steps and pricing coverage, and is capped at 5,000 runs. Updating a rate changes estimates for the selected historical window because historical rate snapshots are not yet retained. These are operational estimates, not invoices; cached-token discounts, provider-specific surcharges, taxes, currency conversion, budgets/alerts and billing-grade reconciliation remain future work. Owners and admins can manage rates; viewers can read cost summaries; operators currently have no cost permissions.
+
+
+## Budget governance
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/budgets` | `budgets:read` | List tenant monthly budget policies and current estimated usage |
+| PUT | `/budgets` | `budgets:manage` | Upsert a tenant, agent or model budget |
+| DELETE | `/budgets/:scopeType?scopeValue=...` | `budgets:manage` | Delete a policy |
+
+A tenant policy uses `{"scopeType":"tenant","scopeValue":"*"}`. Agent policies use a tenant-owned agent ID; model policies use `provider/model`. Budgets are USD estimates on UTC calendar months and current configured rates. Hard policies block new run admission after observed spend reaches the limit. The 5,000-run accounting cap fails closed for hard admission; concurrent admissions and in-flight work can still exceed the limit because atomic reservations are not implemented. Owner/admin manage policies; operator/viewer can read them.
