@@ -4,9 +4,10 @@ import ApprovalsInbox from "./components/ApprovalsInbox";
 import RunsTraces from "./components/RunsTraces";
 import Evaluations from "./components/Evaluations";
 import CostIntelligence from "./components/CostIntelligence";
+import BudgetManagement from "./components/BudgetManagement";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bot, Boxes, ChevronDown, CircleHelp,
-  Command, CreditCard, GitBranch, LayoutDashboard, LifeBuoy, LockKeyhole,
+  Command, CreditCard, Gauge, GitBranch, LayoutDashboard, LifeBuoy, LockKeyhole,
   Menu, MoreHorizontal, Plus, Search, Settings2, ShieldCheck, Sparkles,
   Workflow, Zap, Bell, CheckCircle2, Clock3, AlertTriangle
 } from "lucide-react";
@@ -22,7 +23,8 @@ const nav: NavItem[] = [
   { label: "Incidents", icon: LifeBuoy, section: "Operate" },
   { label: "Integrations", icon: Boxes, section: "Govern" },
   { label: "Access & policies", icon: LockKeyhole, section: "Govern" },
-  { label: "Usage & billing", icon: CreditCard, section: "Govern" }
+  { label: "Usage & billing", icon: CreditCard, section: "Govern" },
+  { label: "Budgets", icon: Gauge, section: "Govern" }
 ];
 
 const activity = [
@@ -80,7 +82,7 @@ function App() {
         </header>
 
         <div className="content">
-          {active === "Approvals" ? <ApprovalsInbox /> : active === "Runs & traces" ? <RunsTraces /> : active === "Evaluations" ? <Evaluations /> : active === "Workflow studio" ? <WorkflowStudio /> : active === "Usage & billing" ? <CostIntelligence /> : <>
+          {active === "Approvals" ? <ApprovalsInbox /> : active === "Runs & traces" ? <RunsTraces /> : active === "Evaluations" ? <Evaluations /> : active === "Workflow studio" ? <WorkflowStudio /> : active === "Usage & billing" ? <CostIntelligence /> : active === "Budgets" ? <BudgetManagement /> : <>
           <div className="page-heading">
             <div><div className="eyebrow"><span className="live-dot" /> SYSTEM OPERATIONAL</div><h1>{active === "Overview" ? "Good morning, Matiur" : active}</h1><p>Here's what's happening across your AI operations today.</p></div>
             <div className="heading-actions"><button className="button-secondary"><GitBranch size={15} /> Production <ChevronDown size={14} /></button><button className="button-primary"><Plus size={16} /> Create agent</button></div>
