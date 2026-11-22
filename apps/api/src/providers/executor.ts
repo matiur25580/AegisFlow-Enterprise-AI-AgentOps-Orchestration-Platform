@@ -28,7 +28,7 @@ export class AgentProviderExecutor {
     const timeout = setTimeout(() => controller.abort(), Math.min(300_000, Math.max(1_000, config.timeoutMs)));
     const started = performance.now();
     try {
-      const body = JSON.stringify(input);
+      const body = JSON.stringify(input) ?? "null";
       const request = this.buildRequest(provider, config, apiKey, body);
       const response = await this.fetcher(request.url, { method: "POST", headers: request.headers, body: request.body, signal: controller.signal });
       const payload = await response.json().catch(() => ({}));
