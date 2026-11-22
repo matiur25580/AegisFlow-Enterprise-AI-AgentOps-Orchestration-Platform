@@ -42,7 +42,7 @@ observabilityRouter.get("/overview", requirePermission("runs:read"), asyncHandle
 
 observabilityRouter.get("/runs/:runId/trace", requirePermission("runs:read"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
-  const runId = z.string().regex(/^[a-f\\d]{24}$/i).parse(req.params.runId);
+  const runId = z.string().regex(/^[a-f\d]{24}$/i).parse(req.params.runId);
   const run = await ExecutionRun.findOne({ _id: runId, tenantId: auth.tenantId })
     .select("-nodes -edges -leaseToken -leaseExpiresAt -cancelRequestedAt -idempotencyKey")
     .lean();
