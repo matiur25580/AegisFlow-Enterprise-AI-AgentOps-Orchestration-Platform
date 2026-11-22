@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const objectId = /^[a-f\\d]{24}$/i;
+const objectId = /^[a-f\d]{24}$/i;
 export const auditQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
