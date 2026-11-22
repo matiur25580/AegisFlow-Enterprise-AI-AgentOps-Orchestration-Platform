@@ -58,7 +58,7 @@ export function validateWorkflowGraph(nodes: WorkflowNodeInput[], edges: Workflo
       if (typeof config.assigneeRole !== "string" || !["owner", "admin", "operator"].includes(config.assigneeRole)) {
         issues.push({ code: "APPROVAL_CONFIG_REQUIRED", message: `Approval node "${node.id}" requires an assigneeRole of owner, admin or operator.`, nodeId: node.id });
       }
-      if (config.assigneeUserId !== undefined && (typeof config.assigneeUserId !== "string" || !/^[a-f\\d]{24}$/i.test(config.assigneeUserId))) {
+      if (config.assigneeUserId !== undefined && (typeof config.assigneeUserId !== "string" || !/^[a-f\d]{24}$/i.test(config.assigneeUserId))) {
         issues.push({ code: "APPROVAL_ASSIGNEE_INVALID", message: `Approval node "${node.id}" has an invalid assigneeUserId.`, nodeId: node.id });
       }
       if (config.timeoutMinutes !== undefined && (!Number.isInteger(config.timeoutMinutes) || Number(config.timeoutMinutes) < 1 || Number(config.timeoutMinutes) > 10080)) {
