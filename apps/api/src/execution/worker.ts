@@ -123,7 +123,7 @@ async function expirePendingApprovals(): Promise<void> {
       run.status = "failed";
       run.lastError = "APPROVAL_EXPIRED: Human approval deadline elapsed.";
       run.completedAt = now;
-      run.steps = run.steps.map(step => step.nodeId === approval.nodeId ? { ...step.toObject(), status: "failed", completedAt: now, error: "Human approval deadline elapsed." } as typeof step : step);
+      run.set("steps", run.steps.map(step => step.nodeId === approval.nodeId ? { ...step.toObject(), status: "failed", completedAt: now, error: "Human approval deadline elapsed." } : step));
       await run.save();
     }
     await writeAuditEvent({ tenantId: String(approval.tenantId), action: "approval.expired", resourceType: "approval", resourceId: String(approval._id), metadata: { runId: String(approval.runId), nodeId: approval.nodeId } });
