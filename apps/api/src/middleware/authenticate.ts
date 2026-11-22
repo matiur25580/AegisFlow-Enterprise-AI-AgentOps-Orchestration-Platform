@@ -7,14 +7,21 @@ import { verifyAccessToken } from "../auth/tokens.js";
 import type { AuthContext } from "../auth/types.js";
 
 export const authenticate: RequestHandler = async (req, res, next) => {
-  try {
-    const header = req.header("authorization");
-    if (!header?.startsWith("Bearer ")) {
-      res.status(401).json({ error: { code: "AUTH_REQUIRED", message: "Authentication is required." }, requestId: res.locals.requestId });
-      return;
-    }
+  const header = req.header("authorization");
+  if (!header?.startsWith("Bearer ")) {
+    res.status(401).json({ error: { code: "AUTH_REQUIRED", message: "Authentication is required." }, requestId: res.locals.requestId });
+    return;
+  }
 
-    const claims = verifyAccessToken(header.slice(7));
+  let claims;
+  try {
+    claims = verifyAccessToken(header.slice(7));
+  } catch {
+    res.status(401).json({ error: { code: "INVALID_TOKEN", message: "A valid access token is required." }, requestId: res.locals.requestId });
+    return;
+  }
+
+  try {
     const [user, membership, session, tenant] = await Promise.all([
       User.findById(claims.sub).select("email displayName status").lean(),
       Membership.findOne({ _id: claims.membershipId, userId: claims.sub, tenantId: claims.tenantId, status: "active" }).lean(),
@@ -37,7 +44,7 @@ export const authenticate: RequestHandler = async (req, res, next) => {
       displayName: user.displayName
     } satisfies AuthContext;
     next();
-  } catch {
-    res.status(401).json({ error: { code: "INVALID_TOKEN", message: "A valid access token is required." }, requestId: res.locals.requestId });
+  } catch (error) {
+    next(error);
   }
 };

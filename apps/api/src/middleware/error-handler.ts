@@ -15,6 +15,11 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _nex
     return;
   }
 
+  if (typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === 11000) {
+    res.status(409).json({ error: { code: "RESOURCE_CONFLICT", message: "A resource with the same unique value already exists." }, requestId });
+    return;
+  }
+
   logger.error({ err: error, requestId, method: req.method, path: req.path }, "Unhandled request error");
   const status = typeof error === "object" && error !== null && "statusCode" in error
     ? Number((error as { statusCode: unknown }).statusCode) : 500;

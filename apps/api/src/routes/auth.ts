@@ -1,6 +1,5 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { User } from "../models/user.model.js";
@@ -32,7 +31,7 @@ function createSlug(name: string): string {
   return `${base}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function createSession(userId: string, tenantId: string, req: Parameters<typeof authRouter.post>[1] extends never ? never : import("express").Request) {
+async function createSession(userId: string, tenantId: string, req: Request) {
   const refreshToken = createRefreshToken();
   const expiresAt = new Date(Date.now() + env.JWT_REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000);
   const session = await RefreshSession.create({
