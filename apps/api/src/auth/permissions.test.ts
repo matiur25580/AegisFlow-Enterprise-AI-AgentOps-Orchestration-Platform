@@ -16,7 +16,6 @@ test("only owner and admin can read secret metadata",()=>{
  assert.equal(hasPermission("viewer","secrets:read"),false);
 });
 
-
 test("cost pricing is owner/admin managed while workspace viewers can read estimates", () => {
   assert.equal(hasPermission("owner", "costs:manage"), true);
   assert.equal(hasPermission("admin", "costs:manage"), true);
@@ -24,4 +23,13 @@ test("cost pricing is owner/admin managed while workspace viewers can read estim
   assert.equal(hasPermission("viewer", "costs:manage"), false);
   assert.equal(hasPermission("viewer", "costs:read"), true);
   assert.equal(hasPermission("operator", "costs:read"), false);
+});
+
+test("budget policies are visible to operators and viewers but managed by owner/admin only", () => {
+  assert.equal(hasPermission("owner", "budgets:manage"), true);
+  assert.equal(hasPermission("admin", "budgets:manage"), true);
+  assert.equal(hasPermission("operator", "budgets:manage"), false);
+  assert.equal(hasPermission("viewer", "budgets:manage"), false);
+  assert.equal(hasPermission("operator", "budgets:read"), true);
+  assert.equal(hasPermission("viewer", "budgets:read"), true);
 });
