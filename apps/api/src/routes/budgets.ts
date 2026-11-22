@@ -29,7 +29,7 @@ const policySchema = z.object({
 async function usageForTenant(tenantId: string, from: Date) {
   const [runs, rates] = await Promise.all([
     ExecutionRun.find({ tenantId, createdAt: { $gte: from } }).sort({ createdAt: -1 }).limit(5000)
-      .select("steps.providerUsage agentSnapshots").lean(),
+      .select("steps.nodeId steps.providerUsage agentSnapshots").lean(),
     ModelPrice.find({ tenantId, effectiveFrom: { $lte: new Date() } })
       .select("provider model inputUsdPerMillionTokens outputUsdPerMillionTokens").lean()
   ]);
@@ -41,7 +41,8 @@ async function usageForTenant(tenantId: string, from: Date) {
       const estimate = estimateUsageCost(usage, rates);
       if (estimate.estimatedCostUsd === null) continue;
       totals.set("tenant:*", (totals.get("tenant:*") ?? 0) + estimate.estimatedCostUsd);
-      totals.set("model:" + usage.provider + "/" + usage.model, (totals.get("model:" + usage.provider + "/" + usage.model) ?? 0) + estimate.estimatedCostUsd);
+      const modelKey = usage.provider + "/" + usage.model.toLowerCase();
+      totals.set("model:" + modelKey, (totals.get("model:" + modelKey) ?? 0) + estimate.estimatedCostUsd);
       const snapshot = (run.agentSnapshots ?? []).find(item => (item as { nodeId?: string }).nodeId === step.nodeId) as { agentId?: string } | undefined;
       if (snapshot?.agentId) totals.set("agent:" + snapshot.agentId, (totals.get("agent:" + snapshot.agentId) ?? 0) + estimate.estimatedCostUsd);
     }
@@ -67,19 +68,20 @@ budgetsRouter.get("/", requirePermission("budgets:read"), asyncHandler(async (_r
 budgetsRouter.put("/", requirePermission("budgets:manage"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const input = policySchema.parse(req.body);
+  const scopeValue = input.scopeType === "model" ? input.scopeValue.toLowerCase() : input.scopeValue;
   const policy = await BudgetPolicy.findOneAndUpdate(
-    { tenantId: auth.tenantId, scopeType: input.scopeType, scopeValue: input.scopeValue },
-    { $set: { ...input, updatedBy: auth.userId }, $setOnInsert: { tenantId: auth.tenantId } },
+    { tenantId: auth.tenantId, scopeType: input.scopeType, scopeValue },
+    { $set: { ...input, scopeValue, updatedBy: auth.userId }, $setOnInsert: { tenantId: auth.tenantId } },
     { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
   ).lean();
-  await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "budget.policy.updated", resourceType: "budget_policy", resourceId: input.scopeType + ":" + input.scopeValue, metadata: { monthlyLimitUsd: input.monthlyLimitUsd, warningThresholdPercent: input.warningThresholdPercent, enforcement: input.enforcement, enabled: input.enabled }, ipAddress: req.ip });
+  await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "budget.policy.updated", resourceType: "budget_policy", resourceId: input.scopeType + ":" + scopeValue, metadata: { monthlyLimitUsd: input.monthlyLimitUsd, warningThresholdPercent: input.warningThresholdPercent, enforcement: input.enforcement, enabled: input.enabled }, ipAddress: req.ip });
   res.json({ data: policy });
 }));
 
-budgetsRouter.delete("/:scopeType/:scopeValue", requirePermission("budgets:manage"), asyncHandler(async (req, res) => {
+budgetsRouter.delete("/:scopeType", requirePermission("budgets:manage"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const scopeType = z.enum(["tenant", "agent", "model"]).parse(req.params.scopeType);
-  const scopeValue = decodeURIComponent(req.params.scopeValue);
+  const scopeValue = z.string().trim().min(1).max(160).parse(req.query.scopeValue);
   const deleted = await BudgetPolicy.findOneAndDelete({ tenantId: auth.tenantId, scopeType, scopeValue }).select("_id").lean();
   if (!deleted) { res.status(404).json({ error: { code: "BUDGET_NOT_FOUND", message: "Budget policy was not found." } }); return; }
   await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "budget.policy.deleted", resourceType: "budget_policy", resourceId: scopeType + ":" + scopeValue, ipAddress: req.ip });
