@@ -28,6 +28,6 @@ export class MongoSecretResolver implements SecretResolver {
     const secret = await Secret.findOne({ tenantId: input.tenantId, ref: input.secretRef, provider: input.provider })
       .select("+ciphertext +iv +authTag").lean();
     if (!secret) throw new ProviderExecutionError("Provider credentials were not found for this tenant.", "PROVIDER_SECRET_UNAVAILABLE");
-    return decryptSecret(secret, input);
+    return decryptSecret(secret, { tenantId: input.tenantId, ref: input.secretRef, provider: input.provider });
   }
 }
