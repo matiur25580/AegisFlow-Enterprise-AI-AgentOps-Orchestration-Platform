@@ -32,3 +32,38 @@ export function evaluateCases(
     results
   };
 }
+
+export interface EvaluationGatePolicy {
+  minScore: number;
+  maxRegressionPoints: number;
+}
+export interface EvaluationGateResult {
+  status: "passed" | "blocked";
+  minScore: number;
+  maxRegressionPoints: number;
+  previousScore: number | null;
+  regressionPoints: number | null;
+  reasons: string[];
+}
+
+/** A failed gate blocks promotion, not evaluation execution. */
+export function assessEvaluationGate(
+  score: number,
+  previousScore: number | null,
+  policy: EvaluationGatePolicy
+): EvaluationGateResult {
+  const regressionPoints = previousScore === null ? null : Number(Math.max(0, previousScore - score).toFixed(2));
+  const reasons: string[] = [];
+  if (score < policy.minScore) reasons.push(`Score ${score.toFixed(2)} is below the required minimum of ${policy.minScore.toFixed(2)}.`);
+  if (regressionPoints !== null && regressionPoints > policy.maxRegressionPoints) {
+    reasons.push(`Score regressed by ${regressionPoints.toFixed(2)} points, exceeding the allowed ${policy.maxRegressionPoints.toFixed(2)}.`);
+  }
+  return {
+    status: reasons.length ? "blocked" : "passed",
+    minScore: policy.minScore,
+    maxRegressionPoints: policy.maxRegressionPoints,
+    previousScore,
+    regressionPoints,
+    reasons
+  };
+}
