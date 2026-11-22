@@ -97,9 +97,10 @@ async function processClaim(runId: string, token: string): Promise<void> {
       throw new ExecutionError("Approval has already reached a terminal state while the run is still at its approval node.", "APPROVAL_STATE_CONFLICT");
     }
     try {
-      const output = await executeNode(node);
+      const execution = await executeNode(node, run, stepsState);
+      const output = execution.output;
       const completedAt = new Date();
-      const done = steps.map(step => step.nodeId === node.id ? { ...step, status: "succeeded" as const, completedAt, output } : step);
+      const done = steps.map(step => step.nodeId === node.id ? { ...step, status: "succeeded" as const, completedAt, output, providerUsage: execution.providerUsage ?? null } : step);
       const next = nextNodeId(node, edges);
       if (node.type === "end") {
         await checkpoint(runId, token, { steps: done, currentNodeId: null, status: "succeeded", completedAt, leaseToken: null, leaseExpiresAt: null, lastError: null });
@@ -111,8 +112,8 @@ async function processClaim(runId: string, token: string): Promise<void> {
       current = next;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown node execution error.";
-      const code = error instanceof ExecutionError ? error.code : "NODE_EXECUTION_FAILED";
-      const retryable = error instanceof ExecutionError && error.retryable;
+      const code = error instanceof ExecutionError || error instanceof ProviderExecutionError ? error.code : "NODE_EXECUTION_FAILED";
+      const retryable = (error instanceof ExecutionError || error instanceof ProviderExecutionError) && error.retryable;
       const failedAt = new Date();
       const failed = steps.map(step => step.nodeId === node.id ? { ...step, status: "failed" as const, completedAt: failedAt, error: message } : step);
       const shouldRetry = retryable && attempt < run.maxAttempts;
