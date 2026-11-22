@@ -42,3 +42,27 @@ Both values are bounded from 0 to 100. Defaults are 80 and 10 respectively. Each
 The UI accepts candidate outputs and submits them to the scoring API. It does not yet invoke an LLM provider. There is no model-as-judge, latency measurement, token/cost accounting, dataset import/export, or automated multi-version execution yet. Treat these scores as deterministic checks of submitted outputs, not as a comprehensive measure of model quality.
 
 For production-grade provider evaluation, connect the evaluator to the future provider adapter using a controlled execution sandbox, redacted fixtures, timeouts, budget limits, and explicit secret-manager integration.
+
+
+## Evaluation-gated workflow promotion and history
+
+Workflow version promotion now enforces evaluation evidence for every distinct agent referenced by the version's agent nodes.
+
+Before a workflow version becomes active, AegisFlow:
+1. Resolves each referenced agent inside the authenticated workspace.
+2. Requires the agent to be active and to have an active version.
+3. Finds evaluation suites pinned to that exact agent version.
+4. Selects the newest evaluation run across those suites.
+5. Requires that run's regression-aware release gate to be `passed`.
+
+If any agent is missing, inactive, has no evaluation for its current active version, or has a blocked latest evaluation, promotion returns HTTP 409 with a machine-readable code and per-agent reasons. The workflow's active version is not changed.
+
+Successful promotions atomically update the workflow's active version and create an immutable `WorkflowPromotion` record containing the workflow graph hash, actor, timestamp, and evaluation evidence (agent/version, suite/run, score, and gate status). Audit metadata includes the evaluation run IDs. Promotion history is available at:
+
+`GET /api/v1/workflows/:workflowId/promotions`
+
+The history endpoint is tenant-scoped and bounded to the 50 most recent records.
+
+### Governance boundary
+
+This gate evaluates the agent versions currently active when the workflow version is promoted. It does not automatically pin or promote agent versions, run evaluation suites itself, deploy infrastructure, or continuously re-evaluate a workflow after later agent changes. Operators should re-promote a workflow after agent version changes and treat the promotion record as point-in-time evidence. Human approval nodes remain a separate runtime control for individual workflow executions.
