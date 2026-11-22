@@ -140,7 +140,7 @@ Illustrative AgentOps operator view for lifecycle, orchestration, quality and go
 
 ## 8. Engineering delivery
 
-GitHub Actions includes platform CI, CodeQL, secret scanning and dependency auditing. Review current dependency results before release. Remaining priorities include committed reproducible npm lockfiles, eliminating residual advisories, cross-tenant authorization integration tests, browser E2E/accessibility coverage, immutable action pinning, execution observability and backup/restore validation.
+GitHub Actions includes platform CI, CodeQL, secret scanning and dependency auditing. Review current dependency results before release. A committed reproducible npm lockfile is enforced in CI and the latest audit reports zero known vulnerabilities. Remaining priorities include ongoing advisory monitoring, cross-tenant authorization integration tests, browser E2E/accessibility coverage, immutable action pinning, execution observability and backup/restore validation.
 
 ## 9. Documentation
 
