@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AlertCircle, Bell, CheckCheck, Clock3, LockKeyhole, RefreshCw, ShieldAlert, Wallet } from "lucide-react";
 
 type BudgetAlert = {
@@ -65,7 +65,7 @@ export default function BudgetAlerts() {
     if (token) load().catch(error => setMessage(error instanceof Error ? error.message : "Unable to load budget alerts."));
   }, [token, load]);
 
-  const signIn = async (event: React.FormEvent) => {
+  const signIn = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setAuthError("");
     try {
       const response = await fetch(API + "/auth/login", {
