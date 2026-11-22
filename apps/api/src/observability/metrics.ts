@@ -46,6 +46,7 @@ export function buildRunOverview(
     if (createdAt && createdAt >= from && createdAt <= now) {
       const index = Math.min(bucketCount - 1, Math.max(0, Math.floor((createdAt.getTime() - from.getTime()) / bucketMs)));
       const bucket = buckets[index];
+      if (!bucket) continue;
       bucket.total += 1;
       if (run.status === "succeeded") bucket.succeeded += 1;
       else if (run.status === "failed") bucket.failed += 1;
