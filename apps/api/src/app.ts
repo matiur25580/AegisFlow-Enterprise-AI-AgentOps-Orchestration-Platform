@@ -38,7 +38,7 @@ app.use(`${env.API_PREFIX}/auth`, authRateLimit, authRouter);
 app.use(`${env.API_PREFIX}/workspace`, workspaceRouter);
 app.use(`${env.API_PREFIX}/agents`, agentsRouter);
 app.use(`${env.API_PREFIX}/workflows`, workflowsRouter);
-app.use(env.API_PREFIX, runsRouter);
 app.use(`${env.API_PREFIX}/approvals`, approvalsRouter);
+app.use(env.API_PREFIX, runsRouter);
 app.use(notFound);
 app.use(errorHandler);
