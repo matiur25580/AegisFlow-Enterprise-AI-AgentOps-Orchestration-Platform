@@ -30,14 +30,26 @@ runsRouter.post("/workflows/:workflowId/runs", requirePermission("runs:operate")
   const version = await WorkflowVersion.findOne({ tenantId: auth.tenantId, workflowId, version: workflow.activeVersion }).lean();
   if (!version) { res.status(409).json({ error: { code: "ACTIVE_VERSION_MISSING", message: "The active workflow snapshot is missing." } }); return; }
   const agentIds = [...new Set(version.nodes.filter(node => node.type === "agent").map(node => node.config?.agentId).filter((id): id is string => typeof id === "string"))];
+  const agentSnapshots: Array<Record<string, unknown>> = [];
   if (agentIds.length) {
-    const agents = await Agent.find({ tenantId: auth.tenantId, _id: { $in: agentIds }, status: "active", activeVersion: { $ne: null } }).select("_id activeVersion").lean();
-    const versions = await AgentVersion.find({ tenantId: auth.tenantId, agentId: { $in: agents.map(agent => agent._id) }, version: { $in: agents.map(agent => agent.activeVersion) } }).select("agentId version").lean();
-    const ready = new Set(versions.map(item => `${String(item.agentId)}:${item.version}`));
+    const agents = await Agent.find({ tenantId: auth.tenantId, _id: { $in: agentIds }, status: "active", activeVersion: { $ne: null } })
+      .select("_id activeVersion provider model secretRef").lean();
+    const versions = await AgentVersion.find({ tenantId: auth.tenantId, agentId: { $in: agents.map(agent => agent._id) }, version: { $in: agents.map(agent => agent.activeVersion) } })
+      .select("agentId version systemPrompt temperature maxOutputTokens timeoutMs responseFormat").lean();
     for (const id of agentIds) {
       const agent = agents.find(item => String(item._id) === id);
-      if (!agent || !ready.has(`${id}:${agent.activeVersion}`)) {
+      const versionSnapshot = agent && versions.find(item => String(item.agentId) === id && item.version === agent.activeVersion);
+      if (!agent || !versionSnapshot) {
         res.status(409).json({ error: { code: "AGENT_NOT_EXECUTABLE", message: `Agent "${id}" is not active with a valid active version.` } }); return;
+      }
+      for (const node of version.nodes.filter(item => item.type === "agent" && item.config?.agentId === id)) {
+        agentSnapshots.push({
+          nodeId: node.id, agentId: id, agentVersion: versionSnapshot.version,
+          provider: agent.provider, model: agent.model, secretRef: agent.secretRef ?? null,
+          systemPrompt: versionSnapshot.systemPrompt, temperature: versionSnapshot.temperature,
+          maxOutputTokens: versionSnapshot.maxOutputTokens, timeoutMs: versionSnapshot.timeoutMs,
+          responseFormat: versionSnapshot.responseFormat
+        });
       }
     }
   }
@@ -47,7 +59,7 @@ runsRouter.post("/workflows/:workflowId/runs", requirePermission("runs:operate")
   if (existing) { res.status(200).json({ data: existing, idempotentReplay: true }); return; }
   const run = await ExecutionRun.create({
     tenantId: auth.tenantId, workflowId, workflowVersion: version.version, graphHash: version.graphHash,
-    nodes: version.nodes, edges: version.edges, status: "queued", idempotencyKey, requestedBy: auth.userId, nextAttemptAt: new Date()
+    nodes: version.nodes, edges: version.edges, agentSnapshots, status: "queued", idempotencyKey, requestedBy: auth.userId, nextAttemptAt: new Date()
   });
   await audit(auth, "run.queued", String(run._id), { workflowId, workflowVersion: version.version, graphHash: version.graphHash });
   res.status(202).json({ data: run, idempotentReplay: false });
