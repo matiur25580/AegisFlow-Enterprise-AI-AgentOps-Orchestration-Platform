@@ -22,7 +22,7 @@ export interface GraphIssue {
   edgeId?: string;
 }
 
-const secretReference = /^(vault|aws-sm|azure-kv|gcp-sm):[a-zA-Z0-9/_-]+$/;
+const secretReference = /^(vault|aws-sm|azure-kv|gcp-sm):[a-zA-Z0-9/_-]+$|^aegisflow:[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const forbiddenSecretKey = /^(password|secret|apiKey|accessToken|refreshToken|credential)$/i;
 
 export function validateWorkflowGraph(nodes: WorkflowNodeInput[], edges: WorkflowEdgeInput[]): GraphIssue[] {
