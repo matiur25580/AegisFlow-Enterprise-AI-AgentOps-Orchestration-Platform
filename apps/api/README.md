@@ -91,7 +91,7 @@ Graph validation enforces exactly one start node, at least one end node, unique 
 
 Workflow versions are append-only snapshots with a SHA-256 graph hash and Mongoose immutable fields. Promotion updates the active-version pointer and publishes the workflow; promoting an earlier version provides the rollback mechanism. All workflow and version reads/writes filter by the authenticated tenant ID from server-side auth context. Workflow lifecycle and version events are written to the tenant audit log. Secret values must never be placed in workflow configuration; use secret-reference URIs only.
 
-The current milestone provides the API and graph-validation foundation. It does not yet include the React drag-and-drop canvas, execution engine, conditional branch evaluator, durable scheduling, or approval runtime. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
+The workflow API and graph-validation foundation is paired with a React workflow studio and a durable MongoDB-backed execution runtime. The runtime pins immutable graph snapshots, queues idempotent runs, checkpoints node traces, uses expiring worker leases, supports cooperative cancellation and manual retry, and evaluates only literal boolean conditions. Agent provider execution and human approval handling remain disabled until their respective adapters/runtimes are configured. See [Workflow execution runtime](../../docs/workflow-execution-runtime.md) for API and operational details. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
 
 ## Role baseline
 
