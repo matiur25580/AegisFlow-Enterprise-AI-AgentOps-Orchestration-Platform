@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import WorkflowStudio from "./components/WorkflowStudio";
+import ApprovalsInbox from "./components/ApprovalsInbox";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bot, Boxes, ChevronDown, CircleHelp,
   Command, CreditCard, GitBranch, LayoutDashboard, LifeBuoy, LockKeyhole,
@@ -76,7 +77,7 @@ function App() {
         </header>
 
         <div className="content">
-          {active === "Workflow studio" ? <WorkflowStudio /> : <>
+          {active === "Approvals" ? <ApprovalsInbox /> : active === "Workflow studio" ? <WorkflowStudio /> : <>
           <div className="page-heading">
             <div><div className="eyebrow"><span className="live-dot" /> SYSTEM OPERATIONAL</div><h1>{active === "Overview" ? "Good morning, Matiur" : active}</h1><p>Here's what's happening across your AI operations today.</p></div>
             <div className="heading-actions"><button className="button-secondary"><GitBranch size={15} /> Production <ChevronDown size={14} /></button><button className="button-primary"><Plus size={16} /> Create agent</button></div>
