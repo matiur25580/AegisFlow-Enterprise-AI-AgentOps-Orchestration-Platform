@@ -77,3 +77,15 @@ test("validates approval reviewer assignment and bounded deadline", () => {
   assert.ok(invalid.some(issue => issue.code === "APPROVAL_ASSIGNEE_INVALID"));
   assert.ok(invalid.some(issue => issue.code === "APPROVAL_TIMEOUT_INVALID"));
 });
+
+test("accepts the application-managed tenant vault reference", () => {
+  const agent: WorkflowNodeInput = {
+    id: "agent", type: "agent", label: "Agent", position: { x: 100, y: 0 },
+    config: { agentId: "0123456789abcdef01234567", secretRef: "aegisflow:primary-openai" }
+  };
+  const issues = validateWorkflowGraph(
+    [nodes[0]!, agent, nodes[1]!],
+    [{ id: "a", source: "start", target: "agent" }, { id: "b", source: "agent", target: "end" }]
+  );
+  assert.deepEqual(issues, []);
+});
