@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ExecutionRun } from "../models/execution-run.model.js";
+import { Approval } from "../models/approval.model.js";
+import { writeAuditEvent } from "../auth/audit.js";
 import { logger } from "../config/logger.js";
 import { ExecutionError, nextNodeId, retryDelayMs, type RuntimeEdge, type RuntimeNode } from "./engine.js";
 
@@ -7,7 +9,7 @@ const LEASE_MS = 30_000;
 const POLL_MS = 1_000;
 let poller: ReturnType<typeof setInterval> | null = null;
 let polling = false;
-type Step = { nodeId: string; nodeType: string; label: string; status: "running" | "succeeded" | "failed"; attempt: number; startedAt: Date; completedAt?: Date | null; output?: unknown; error?: string | null };
+type Step = { nodeId: string; nodeType: string; label: string; status: "running" | "waiting_approval" | "succeeded" | "failed"; attempt: number; startedAt: Date; completedAt?: Date | null; output?: unknown; error?: string | null };
 
 async function checkpoint(runId: string, token: string, values: Record<string, unknown>): Promise<void> {
   const result = await ExecutionRun.updateOne({ _id: runId, leaseToken: token, status: "running" }, { $set: values });
@@ -46,6 +48,36 @@ async function processClaim(runId: string, token: string): Promise<void> {
     const steps = stepsState.filter(step => step.nodeId !== node.id);
     steps.push({ nodeId: node.id, nodeType: node.type, label: node.label, status: "running", attempt, startedAt });
     await checkpoint(runId, token, { currentNodeId: current, steps, attempt: run.attempt + 1, startedAt: run.startedAt ?? startedAt });
+    if (node.type === "approval") {
+      const next = nextNodeId(node, edges);
+      if (!next) throw new ExecutionError(`Approval node "${node.id}" has no outgoing route.`, "APPROVAL_ROUTE_MISSING");
+      const configuredRole = node.config.assigneeRole;
+      const allowedRoles = ["owner", "admin", "operator", "viewer"];
+      const assigneeRole = typeof configuredRole === "string" && allowedRoles.includes(configuredRole) ? configuredRole : "operator";
+      const configuredUser = node.config.assigneeUserId;
+      const assigneeUserId = typeof configuredUser === "string" && /^[a-f\\d]{24}$/i.test(configuredUser) ? configuredUser : null;
+      const timeoutValue = Number(node.config.timeoutMinutes);
+      const timeoutMinutes = Number.isFinite(timeoutValue) ? Math.min(10080, Math.max(1, Math.floor(timeoutValue))) : 1440;
+      const dueAt = new Date(Date.now() + timeoutMinutes * 60_000);
+      const approval = await Approval.findOneAndUpdate(
+        { tenantId: run.tenantId, runId: run._id, nodeId: node.id },
+        { $setOnInsert: {
+          tenantId: run.tenantId, runId: run._id, workflowId: run.workflowId,
+          workflowVersion: run.workflowVersion, graphHash: run.graphHash, nodeId: node.id,
+          nodeLabel: node.label, nextNodeId: next,
+          title: typeof node.config.title === "string" && node.config.title.trim() ? node.config.title.trim().slice(0, 160) : node.label,
+          description: typeof node.config.description === "string" ? node.config.description.slice(0, 2000) : "",
+          assigneeRole, assigneeUserId, requestedBy: run.requestedBy, dueAt, status: "pending"
+        } },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      if (approval.status === "pending") {
+        const waiting = steps.map(step => step.nodeId === node.id ? { ...step, status: "waiting_approval" as const, completedAt: null, output: { approvalId: String(approval._id), dueAt: approval.dueAt } } : step);
+        await checkpoint(runId, token, { steps: waiting, currentNodeId: node.id, status: "waiting_approval", leaseToken: null, leaseExpiresAt: null });
+        return;
+      }
+      throw new ExecutionError("Approval has already reached a terminal state while the run is still at its approval node.", "APPROVAL_STATE_CONFLICT");
+    }
     try {
       const output = await executeNode(node);
       const completedAt = new Date();
@@ -79,6 +111,7 @@ async function processClaim(runId: string, token: string): Promise<void> {
 }
 
 export async function processNextExecution(): Promise<boolean> {
+  await expirePendingApprovals();
   const now = new Date();
   const token = randomUUID();
   const claimed = await ExecutionRun.findOneAndUpdate(
