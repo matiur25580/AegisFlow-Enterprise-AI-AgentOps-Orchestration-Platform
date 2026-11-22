@@ -11,7 +11,6 @@ const endpoints: Record<SupportedProvider, string> = {
 function record(value: unknown): JsonRecord { return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {}; }
 function text(value: unknown): string { return typeof value === "string" ? value : ""; }
 function usageNumber(value: unknown): number | null { return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null; }
-function parseJson(value: string): JsonRecord { try { return record(JSON.parse(value)); } catch { return {}; } }
 
 export class AgentProviderExecutor {
   constructor(private readonly secrets: SecretResolver, private readonly fetcher: FetchLike = fetch) {}
@@ -69,11 +68,10 @@ export class AgentProviderExecutor {
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({ model: config.model, system: config.systemPrompt, messages: [{ role: "user", content: input }], temperature: config.temperature, max_tokens: config.maxOutputTokens })
     };
-    const url = new URL(`${endpoints.google}/${encodeURIComponent(config.model)}:generateContent`);
-    url.searchParams.set("key", apiKey);
+    const url = `${endpoints.google}/${encodeURIComponent(config.model)}:generateContent`;
     return {
-      url: url.toString(),
-      headers: { "content-type": "application/json" },
+      url,
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({ systemInstruction: { parts: [{ text: config.systemPrompt }] }, contents: [{ role: "user", parts: [{ text: input }] }], generationConfig: { temperature: config.temperature, maxOutputTokens: config.maxOutputTokens, ...(config.responseFormat === "json" ? { responseMimeType: "application/json" } : {}) } })
     };
   }
