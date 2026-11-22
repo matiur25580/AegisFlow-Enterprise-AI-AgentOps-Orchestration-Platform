@@ -19,17 +19,15 @@ const decisionSchema = z.object({
 }).strict();
 
 function assignmentFilter(auth: AuthContext) {
-  return {
-    $or: [
-      { assigneeUserId: auth.userId },
-      { assigneeUserId: null, assigneeRole: auth.role }
-    ]
-  };
+  const roleAssignment = auth.role === "owner" || auth.role === "admin"
+    ? { assigneeUserId: null, assigneeRole: { $in: ["owner", "admin", "operator"] } }
+    : { assigneeUserId: null, assigneeRole: auth.role };
+  return { $or: [{ assigneeUserId: auth.userId }, roleAssignment] };
 }
 
 function canReview(approval: { assigneeUserId?: unknown; assigneeRole: string }, auth: AuthContext): boolean {
   if (approval.assigneeUserId) return String(approval.assigneeUserId) === auth.userId;
-  return approval.assigneeRole === auth.role;
+  return approval.assigneeRole === auth.role || auth.role === "owner" || auth.role === "admin";
 }
 
 approvalsRouter.get("/", requirePermission("approvals:read"), asyncHandler(async (req, res) => {
