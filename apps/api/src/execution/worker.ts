@@ -29,6 +29,7 @@ async function processClaim(runId: string, token: string): Promise<void> {
   const edges = run.edges as unknown as RuntimeEdge[];
   const byId = new Map(nodes.map(node => [node.id, node]));
   let current = run.currentNodeId ?? nodes.find(node => node.type === "start")?.id ?? null;
+  let stepsState = run.steps as unknown as Step[];
 
   while (current) {
     const fresh = await ExecutionRun.findOne({ _id: runId, leaseToken: token, status: "running" }).select("cancelRequestedAt").lean();
@@ -39,10 +40,10 @@ async function processClaim(runId: string, token: string): Promise<void> {
     }
     const node = byId.get(current);
     if (!node) throw new ExecutionError(`Node "${current}" is missing from the execution snapshot.`, "EXECUTION_NODE_MISSING");
-    const previous = (run.steps as unknown as Step[]).find(step => step.nodeId === node.id && step.status === "failed");
+    const previous = stepsState.find(step => step.nodeId === node.id && step.status === "failed");
     const attempt = (previous?.attempt ?? 0) + 1;
     const startedAt = new Date();
-    const steps = (run.steps as unknown as Step[]).filter(step => step.nodeId !== node.id);
+    const steps = stepsState.filter(step => step.nodeId !== node.id);
     steps.push({ nodeId: node.id, nodeType: node.type, label: node.label, status: "running", attempt, startedAt });
     await checkpoint(runId, token, { currentNodeId: current, steps, attempt: run.attempt + 1, startedAt: run.startedAt ?? startedAt });
     try {
@@ -50,12 +51,13 @@ async function processClaim(runId: string, token: string): Promise<void> {
       const completedAt = new Date();
       const done = steps.map(step => step.nodeId === node.id ? { ...step, status: "succeeded" as const, completedAt, output } : step);
       const next = nextNodeId(node, edges);
-      if (node.type === "end" || next === null) {
+      if (node.type === "end") {
         await checkpoint(runId, token, { steps: done, currentNodeId: null, status: "succeeded", completedAt, leaseToken: null, leaseExpiresAt: null, lastError: null });
         return;
       }
+      if (next === null) throw new ExecutionError(`Node "${node.id}" has no outgoing route before the end node.`, "WORKFLOW_PATH_TERMINATED");
       await checkpoint(runId, token, { steps: done, currentNodeId: next });
-      (run.steps as unknown as Step[]) = done;
+      stepsState = done;
       current = next;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown node execution error.";
