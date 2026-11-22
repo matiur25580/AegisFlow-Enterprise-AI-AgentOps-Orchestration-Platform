@@ -191,3 +191,15 @@ Rates are tenant-configured USD per one million input/output tokens. AegisFlow d
 | DELETE | `/budgets/:scopeType?scopeValue=...` | `budgets:manage` | Delete a policy |
 
 A tenant policy uses `{"scopeType":"tenant","scopeValue":"*"}`. Agent policies use a tenant-owned agent ID; model policies use `provider/model`. Budgets are USD estimates on UTC calendar months and current configured rates. Hard policies block new run admission after observed spend reaches the limit. The 5,000-run accounting cap fails closed for hard admission; concurrent admissions and in-flight work can still exceed the limit because atomic reservations are not implemented. Owner/admin manage policies; operator/viewer can read them.
+
+
+## Budget alerts
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/budget-alerts?limit=50` | `budgets:read` | Evaluate enabled monthly policies and list up to 100 persistent tenant alerts |
+| PATCH | `/budget-alerts/:alertId/read` | `budgets:read` | Mark a tenant-owned alert as read |
+
+The GET endpoint evaluates current UTC-month estimated usage before returning alert history. A warning is recorded when a policy crosses its configured warning threshold without yet exceeding the cap; an exceeded event is recorded when the cap is reached. A unique tenant/policy/month/event key makes repeated reads idempotent. Alert records capture the spend and limit observed at creation. All history and read mutations are tenant-scoped.
+
+When the 5,000-run accounting sample is saturated, alert creation is skipped and `meta.sampleSaturated` is true. This avoids asserting a threshold from an incomplete spend sample. Alerts are persisted in-app events, not real-time delivery. Scheduled evaluation and external email/webhook delivery are not included.
