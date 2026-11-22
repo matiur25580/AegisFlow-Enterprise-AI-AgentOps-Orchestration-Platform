@@ -1,3 +1,28 @@
+export type BudgetPolicyForAdmission = {
+  scopeType: "tenant" | "agent" | "model";
+  scopeValue: string;
+  monthlyLimitUsd: number;
+  enforcement: "soft" | "hard";
+  enabled: boolean;
+};
+
+export function findBlockingBudgets(
+  policies: BudgetPolicyForAdmission[],
+  spentByScope: Map<string, number>,
+  agentSnapshots: Array<{ agentId?: string; provider?: string; model?: string }>
+) {
+  const applicable = new Set<string>(["tenant:*"]);
+  for (const snapshot of agentSnapshots) {
+    if (snapshot.agentId) applicable.add("agent:" + snapshot.agentId);
+    if (snapshot.provider && snapshot.model) applicable.add("model:" + snapshot.provider + "/" + snapshot.model.toLowerCase());
+  }
+  return policies.filter(policy => {
+    if (!policy.enabled || policy.enforcement !== "hard") return false;
+    const key = policy.scopeType + ":" + policy.scopeValue;
+    return applicable.has(key) && (spentByScope.get(key) ?? 0) >= policy.monthlyLimitUsd;
+  });
+}
+
 export type BudgetPolicyInput = {
   scopeType: "tenant" | "agent" | "model";
   scopeValue: string;
