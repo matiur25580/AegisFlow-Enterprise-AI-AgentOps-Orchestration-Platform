@@ -10,15 +10,15 @@ function encryptionKey(): Buffer {
   }
   return Buffer.from(value, "hex");
 }
-export function encryptSecret(plaintext: string): EncryptedValue {
-  try { return encryptWithKey(plaintext, encryptionKey()); }
+export function encryptSecret(plaintext: string, context: { tenantId: string; ref: string; provider: SupportedProvider }): EncryptedValue {
+  try { return encryptWithKey(plaintext, encryptionKey(), `${context.tenantId}:${context.ref}:${context.provider}`); }
   catch (error) {
     if (error instanceof ProviderExecutionError) throw error;
     throw new ProviderExecutionError("Provider credentials could not be encrypted.", "SECRET_ENCRYPTION_FAILED");
   }
 }
-function decryptSecret(value: EncryptedValue): string {
-  try { return decryptWithKey(value, encryptionKey()); }
+function decryptSecret(value: EncryptedValue, context: { tenantId: string; ref: string; provider: SupportedProvider }): string {
+  try { return decryptWithKey(value, encryptionKey(), `${context.tenantId}:${context.ref}:${context.provider}`); }
   catch {
     throw new ProviderExecutionError("Stored provider credentials could not be decrypted.", "SECRET_DECRYPTION_FAILED");
   }
@@ -28,6 +28,6 @@ export class MongoSecretResolver implements SecretResolver {
     const secret = await Secret.findOne({ tenantId: input.tenantId, ref: input.secretRef, provider: input.provider })
       .select("+ciphertext +iv +authTag").lean();
     if (!secret) throw new ProviderExecutionError("Provider credentials were not found for this tenant.", "PROVIDER_SECRET_UNAVAILABLE");
-    return decryptSecret(secret);
+    return decryptSecret(secret, input);
   }
 }
