@@ -3,6 +3,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { Workflow } from "../models/workflow.model.js";
 import { Agent } from "../models/agent.model.js";
+import { Membership } from "../models/membership.model.js";
 import { WorkflowVersion } from "../models/workflow-version.model.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { requirePermission } from "../middleware/authorize.js";
@@ -61,6 +62,15 @@ async function validateGraph(nodes: WorkflowNodeInput[], edges: WorkflowEdgeInpu
     const existing = await Agent.find({ tenantId, _id: { $in: agentIds }, status: { $ne: "archived" } }).select("_id").lean();
     const found = new Set(existing.map(agent => String(agent._id)));
     for (const agentId of agentIds) if (!found.has(agentId)) issues.push({ code: "AGENT_REFERENCE_NOT_FOUND", message: `Agent "${agentId}" does not exist in this workspace or is archived.` });
+  }
+  const assignedReviewerIds = [...new Set(nodes.filter(node => node.type === "approval")
+    .map(node => node.config.assigneeUserId).filter((id): id is string => typeof id === "string" && /^[a-f\\d]{24}$/i.test(id)))];
+  if (assignedReviewerIds.length) {
+    const memberships = await Membership.find({ tenantId, userId: { $in: assignedReviewerIds }, status: "active", role: { $in: ["owner", "admin", "operator"] } }).select("userId").lean();
+    const eligible = new Set(memberships.map(item => String(item.userId)));
+    for (const userId of assignedReviewerIds) if (!eligible.has(userId)) {
+      issues.push({ code: "APPROVAL_ASSIGNEE_NOT_ELIGIBLE", message: `Approval reviewer "${userId}" is not an active decision-capable member of this workspace.` });
+    }
   }
   if (issues.length) {
     const error = Object.assign(new Error("Workflow graph validation failed."), { statusCode: 422, code: "WORKFLOW_GRAPH_INVALID", details: issues });
