@@ -21,8 +21,8 @@ const policySchema = z.object({
   enabled: z.boolean().default(true)
 }).strict().superRefine((value, context) => {
   if (value.scopeType === "tenant" && value.scopeValue !== "*") context.addIssue({ code: "custom", path: ["scopeValue"], message: "Tenant scope must use *." });
-  if (value.scopeType === "agent" && !/^[a-f\\d]{24}$/i.test(value.scopeValue)) context.addIssue({ code: "custom", path: ["scopeValue"], message: "Agent scope must be a MongoDB ID." });
-  if (value.scopeType === "model" && !/^(openai|anthropic|google)\\/.{1,120}$/i.test(value.scopeValue)) context.addIssue({ code: "custom", path: ["scopeValue"], message: "Model scope must use provider/model format." });
+  if (value.scopeType === "agent" && !/^[a-f\d]{24}$/i.test(value.scopeValue)) context.addIssue({ code: "custom", path: ["scopeValue"], message: "Agent scope must be a MongoDB ID." });
+  if (value.scopeType === "model" && !/^(openai|anthropic|google)\/.{1,120}$/i.test(value.scopeValue)) context.addIssue({ code: "custom", path: ["scopeValue"], message: "Model scope must use provider/model format." });
 });
 
 budgetsRouter.get("/", requirePermission("budgets:read"), asyncHandler(async (_req, res) => {
