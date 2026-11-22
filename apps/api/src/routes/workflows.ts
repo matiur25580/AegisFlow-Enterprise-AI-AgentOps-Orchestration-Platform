@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { Workflow } from "../models/workflow.model.js";
+import { Agent } from "../models/agent.model.js";
 import { WorkflowVersion } from "../models/workflow-version.model.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { requirePermission } from "../middleware/authorize.js";
@@ -53,8 +54,14 @@ async function audit(req: Request, auth: AuthContext, action: string, workflowId
   });
 }
 
-function validateGraph(nodes: WorkflowNodeInput[], edges: WorkflowEdgeInput[]) {
+async function validateGraph(nodes: WorkflowNodeInput[], edges: WorkflowEdgeInput[], tenantId: string) {
   const issues = validateWorkflowGraph(nodes, edges);
+  const agentIds = [...new Set(nodes.filter(node => node.type === "agent").map(node => node.config.agentId).filter((id): id is string => typeof id === "string" && /^[a-f\\d]{24}$/i.test(id)))];
+  if (agentIds.length) {
+    const existing = await Agent.find({ tenantId, _id: { $in: agentIds }, status: { $ne: "archived" } }).select("_id").lean();
+    const found = new Set(existing.map(agent => String(agent._id)));
+    for (const agentId of agentIds) if (!found.has(agentId)) issues.push({ code: "AGENT_REFERENCE_NOT_FOUND", message: `Agent "${agentId}" does not exist in this workspace or is archived.` });
+  }
   if (issues.length) {
     const error = Object.assign(new Error("Workflow graph validation failed."), { statusCode: 422, code: "WORKFLOW_GRAPH_INVALID", details: issues });
     throw error;
@@ -81,7 +88,7 @@ workflowsRouter.get("/", requirePermission("workflows:read"), asyncHandler(async
 workflowsRouter.post("/", requirePermission("workflows:write"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const input = createSchema.parse(req.body);
-  validateGraph(input.graph.nodes, input.graph.edges);
+  await validateGraph(input.graph.nodes, input.graph.edges, auth.tenantId);
   const workflow = await Workflow.create({
     tenantId: auth.tenantId, ownerUserId: auth.userId, name: input.name, slug: input.slug,
     description: input.description, tags: input.tags, status: "draft", latestVersion: 1
@@ -127,7 +134,7 @@ workflowsRouter.post("/:workflowId/versions", requirePermission("workflows:write
   const auth = res.locals.auth as AuthContext;
   const workflowId = idSchema.parse(req.params.workflowId);
   const input = graphSchema.parse(req.body);
-  validateGraph(input.nodes, input.edges);
+  await validateGraph(input.nodes, input.edges, auth.tenantId);
   const workflow = await Workflow.findOneAndUpdate(
     { _id: workflowId, tenantId: auth.tenantId, status: { $in: ["draft", "published"] } },
     { $inc: { latestVersion: 1 } }, { new: true }
