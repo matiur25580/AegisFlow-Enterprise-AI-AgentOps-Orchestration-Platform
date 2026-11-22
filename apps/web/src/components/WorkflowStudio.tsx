@@ -235,7 +235,7 @@ export default function WorkflowStudio() {
           </div>
           <div className="studio-toolbar-actions"><button className="button-secondary" onClick={saveWorkflow} disabled={busy}><Save size={14}/>{busy ? "Saving…" : selectedId ? "Save version" : "Save draft"}</button>{detail && <button className="button-primary" disabled={busy || detail.workflow.status === "archived"} onClick={() => publish(detail.workflow.latestVersion)}><Sparkles size={14}/> Publish v{detail.workflow.latestVersion}</button>}</div>
         </div>
-        <div className="studio-description-row"><input aria-label="Workflow description" placeholder="Describe what this workflow does…" value={description} onChange={event => setDescription(event.target.value)}/><input aria-label="Workflow slug" placeholder="workflow-slug" value={slug} onChange={event => setSlug(event.target.value)} disabled={!!selectedId}/></div>
+        <div className="studio-description-row"><input aria-label="Workflow description" placeholder="Describe what this workflow does…" value={description} onChange={event => setDescription(event.target.value)}/><input aria-label="Workflow slug" placeholder="workflow-slug" value={slug} onChange={event => setSlug(event.target.value)} disabled={!!selectedId}/><input aria-label="Version changelog" placeholder="Version changelog" value={changelog} onChange={event => setChangelog(event.target.value)} maxLength={1000}/></div>
         <div className="studio-builder panel">
           <div className="studio-builder-head"><div><h2>Canvas</h2><p>Drag nodes to arrange · select a node to configure it</p></div><span className="studio-canvas-meta">{nodes.length} nodes · {edges.length} connections</span></div>
           <div className="studio-node-palette">
