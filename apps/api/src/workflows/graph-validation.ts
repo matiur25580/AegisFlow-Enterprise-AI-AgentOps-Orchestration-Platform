@@ -34,12 +34,18 @@ export function validateWorkflowGraph(nodes: WorkflowNodeInput[], edges: Workflo
     nodeById.set(node.id, node);
 
     const config = node.config ?? {};
-    for (const [key, value] of Object.entries(config)) {
-      if (forbiddenSecretKey.test(key)) issues.push({ code: "RAW_CREDENTIAL_FIELD", message: `Node "${node.id}" contains a prohibited credential field "${key}". Use secretRef.`, nodeId: node.id });
-      if (key === "secretRef" && value !== null && value !== undefined && (typeof value !== "string" || !secretReference.test(value))) {
-        issues.push({ code: "INVALID_SECRET_REFERENCE", message: `Node "${node.id}" has an invalid secret reference.`, nodeId: node.id });
+    const inspectConfig = (value: unknown, path = ""): void => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+        const fieldPath = path ? `${path}.${key}` : key;
+        if (forbiddenSecretKey.test(key)) issues.push({ code: "RAW_CREDENTIAL_FIELD", message: `Node "${node.id}" contains a prohibited credential field "${fieldPath}". Use secretRef.`, nodeId: node.id });
+        if (key === "secretRef" && nestedValue !== null && nestedValue !== undefined && (typeof nestedValue !== "string" || !secretReference.test(nestedValue))) {
+          issues.push({ code: "INVALID_SECRET_REFERENCE", message: `Node "${node.id}" has an invalid secret reference.`, nodeId: node.id });
+        }
+        inspectConfig(nestedValue, fieldPath);
       }
-    }
+    };
+    inspectConfig(config);
 
     if (node.type === "agent" && (typeof config.agentId !== "string" || !/^[a-f\d]{24}$/i.test(config.agentId))) {
       issues.push({ code: "AGENT_CONFIG_REQUIRED", message: `Agent node "${node.id}" requires a valid agentId.`, nodeId: node.id });
