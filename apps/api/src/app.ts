@@ -19,6 +19,7 @@ import { observabilityRouter } from "./routes/observability.js";
 import { evaluationsRouter } from "./routes/evaluations.js";
 import { secretsRouter } from "./routes/secrets.js";
 import { costsRouter } from "./routes/costs.js";
+import { budgetsRouter } from "./routes/budgets.js";
 
 export const app = express();
 
@@ -47,6 +48,7 @@ app.use(`${env.API_PREFIX}/observability`, observabilityRouter);
 app.use(`${env.API_PREFIX}/evaluations`, evaluationsRouter);
 app.use(`${env.API_PREFIX}/secrets`, secretsRouter);
 app.use(`${env.API_PREFIX}/costs`, costsRouter);
+app.use(`${env.API_PREFIX}/budgets`, budgetsRouter);
 app.use(env.API_PREFIX, runsRouter);
 app.use(notFound);
 app.use(errorHandler);
