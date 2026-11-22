@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 const stepSchema = new Schema({
   nodeId: { type: String, required: true }, nodeType: { type: String, required: true },
-  label: { type: String, required: true }, status: { type: String, enum: ["running", "succeeded", "failed"], required: true },
+  label: { type: String, required: true }, status: { type: String, enum: ["running", "waiting_approval", "succeeded", "failed"], required: true },
   attempt: { type: Number, min: 1, required: true }, startedAt: { type: Date, required: true },
   completedAt: { type: Date, default: null }, output: { type: Schema.Types.Mixed, default: null },
   error: { type: String, default: null }
@@ -15,7 +15,7 @@ const runSchema = new Schema({
   graphHash: { type: String, required: true, immutable: true },
   nodes: { type: [Schema.Types.Mixed], required: true, immutable: true },
   edges: { type: [Schema.Types.Mixed], required: true, immutable: true },
-  status: { type: String, enum: ["queued", "running", "succeeded", "failed", "cancelled"], default: "queued", required: true },
+  status: { type: String, enum: ["queued", "running", "waiting_approval", "succeeded", "failed", "cancelled"], default: "queued", required: true },
   idempotencyKey: { type: String, required: true, immutable: true, maxlength: 128 },
   requestedBy: { type: Schema.Types.ObjectId, ref: "User", required: true, immutable: true },
   currentNodeId: { type: String, default: null }, steps: { type: [stepSchema], default: [] },
