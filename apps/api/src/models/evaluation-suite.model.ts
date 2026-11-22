@@ -8,6 +8,11 @@ const evaluationCaseSchema = new Schema({
   weight: { type: Number, min: 0.01, max: 100, default: 1 }
 }, { _id: false });
 
+const releaseGateSchema = new Schema({
+  minScore: { type: Number, min: 0, max: 100, default: 80, required: true },
+  maxRegressionPoints: { type: Number, min: 0, max: 100, default: 10, required: true }
+}, { _id: false });
+
 const evaluationSuiteSchema = new Schema({
   tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true, immutable: true },
   name: { type: String, required: true, trim: true, maxlength: 120 },
@@ -15,6 +20,7 @@ const evaluationSuiteSchema = new Schema({
   agentId: { type: Schema.Types.ObjectId, ref: "Agent", default: null, immutable: true },
   agentVersion: { type: Number, default: null, immutable: true },
   metric: { type: String, enum: ["exact_match", "contains"], default: "exact_match", required: true, immutable: true },
+  releaseGate: { type: releaseGateSchema, default: () => ({ minScore: 80, maxRegressionPoints: 10 }) },
   cases: { type: [evaluationCaseSchema], default: [] },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true, immutable: true }
 }, { timestamps: true, versionKey: false });
