@@ -19,7 +19,6 @@ async function checkpoint(runId: string, token: string, values: Record<string, u
 async function executeNode(node: RuntimeNode): Promise<unknown> {
   if (node.type === "start" || node.type === "end") return null;
   if (node.type === "condition") return { evaluated: String(node.config.expression).toLowerCase() };
-  if (node.type === "approval") throw new ExecutionError("Approval nodes require the human approval runtime, which is not enabled yet.", "APPROVAL_RUNTIME_NOT_CONFIGURED");
   if (node.type === "agent") throw new ExecutionError("No provider executor is configured. Connect a secrets manager and provider adapter before running agent nodes.", "AGENT_EXECUTOR_NOT_CONFIGURED");
   throw new ExecutionError("Unsupported workflow node type.", "UNSUPPORTED_NODE_TYPE");
 }
@@ -52,7 +51,7 @@ async function processClaim(runId: string, token: string): Promise<void> {
       const next = nextNodeId(node, edges);
       if (!next) throw new ExecutionError(`Approval node "${node.id}" has no outgoing route.`, "APPROVAL_ROUTE_MISSING");
       const configuredRole = node.config.assigneeRole;
-      const allowedRoles = ["owner", "admin", "operator", "viewer"];
+      const allowedRoles = ["owner", "admin", "operator"];
       const assigneeRole = typeof configuredRole === "string" && allowedRoles.includes(configuredRole) ? configuredRole : "operator";
       const configuredUser = node.config.assigneeUserId;
       const assigneeUserId = typeof configuredUser === "string" && /^[a-f\d]{24}$/i.test(configuredUser) ? configuredUser : null;
