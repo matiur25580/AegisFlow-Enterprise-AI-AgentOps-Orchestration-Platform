@@ -140,7 +140,7 @@ Workflow promotion governance concept for environment-specific releases, evaluat
 
 ## 8. Engineering delivery
 
-GitHub Actions includes platform CI, CodeQL, secret scanning and dependency auditing. Review current dependency results before release. A committed reproducible npm lockfile is enforced in CI and the latest audit reports zero known vulnerabilities. Remaining priorities include ongoing advisory monitoring, cross-tenant authorization integration tests, browser E2E/accessibility coverage, immutable action pinning, execution observability and backup/restore validation.
+GitHub Actions includes platform CI, CodeQL, secret scanning and dependency auditing. Review the latest successful workflow runs for the exact release candidate before making security or readiness claims; dependency findings can change as advisories are published. Remaining priorities include ongoing advisory monitoring, cross-tenant authorization integration tests, browser E2E/accessibility coverage, immutable action pinning, execution observability and backup/restore validation.
 
 ## 9. Documentation
 
