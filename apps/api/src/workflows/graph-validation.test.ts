@@ -48,7 +48,10 @@ test("requires node-specific configuration and rejects inline credentials", () =
 
 test("requires exactly one start node and at least one end node", () => {
   const issues = validateWorkflowGraph(
-    [{ id: "only", type: "start", label: "Only", position: { x: 0, y: 0 }, config: {} }],
+    [
+      { id: "start-a", type: "start", label: "Start A", position: { x: 0, y: 0 }, config: {} },
+      { id: "start-b", type: "start", label: "Start B", position: { x: 0, y: 100 }, config: {} }
+    ],
     []
   );
   assert.ok(issues.some(issue => issue.code === "START_NODE_COUNT"));
