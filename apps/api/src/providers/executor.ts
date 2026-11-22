@@ -22,7 +22,12 @@ export class AgentProviderExecutor {
       throw new ProviderExecutionError("This provider is not supported by the current HTTP adapter.", "PROVIDER_UNSUPPORTED");
     }
     const provider = config.provider as SupportedProvider;
-    const apiKey = await this.secrets.resolve({ tenantId: config.tenantId, secretRef: config.secretRef, provider });
+    let apiKey: string;
+    try {
+      apiKey = await this.secrets.resolve({ tenantId: config.tenantId, secretRef: config.secretRef, provider });
+    } catch {
+      throw new ProviderExecutionError("Provider credentials could not be resolved.", "PROVIDER_SECRET_UNAVAILABLE");
+    }
     if (!apiKey || apiKey.trim().length < 8) throw new ProviderExecutionError("Provider credentials could not be resolved.", "PROVIDER_SECRET_UNAVAILABLE");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), Math.min(300_000, Math.max(1_000, config.timeoutMs)));
