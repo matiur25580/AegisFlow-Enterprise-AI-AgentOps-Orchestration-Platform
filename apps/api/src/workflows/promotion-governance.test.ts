@@ -12,7 +12,7 @@ test("allows promotion when every referenced active agent version has a passing 
   const result = assessWorkflowPromotion([agent], [passed]);
   assert.equal(result.eligible, true);
   assert.deepEqual(result.reasons, []);
-  assert.equal(result.evidence[0].runId, "run-1");
+  assert.equal(result.evidence[0]!.runId!, "run-1");
 });
 
 test("blocks promotion when an agent has no evaluation for its active version", () => {
@@ -24,7 +24,7 @@ test("blocks promotion when an agent has no evaluation for its active version", 
 test("blocks promotion when the latest evaluation gate is blocked", () => {
   const result = assessWorkflowPromotion([agent], [{ ...passed, gateStatus: "blocked" }]);
   assert.equal(result.eligible, false);
-  assert.match(result.reasons[0], /gate is blocked/);
+  assert.match(result.reasons[0]!, /gate is blocked/);
 });
 
 test("blocks inactive agents and supports workflows without agent nodes", () => {
