@@ -1,14 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
 import { BudgetPolicy } from "../models/budget-policy.model.js";
-import { ExecutionRun } from "../models/execution-run.model.js";
-import { ModelPrice } from "../models/model-price.model.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { requirePermission } from "../middleware/authorize.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { writeAuditEvent } from "../auth/audit.js";
 import type { AuthContext } from "../auth/types.js";
-import { estimateUsageCost } from "../costs/cost-intelligence.js";
+import { getTenantBudgetUsage } from "../costs/budget-usage.js";
 import { budgetState } from "../costs/budget-governance.js";
 
 export const budgetsRouter = Router();
@@ -26,37 +24,13 @@ const policySchema = z.object({
   if (value.scopeType === "model" && !/^(openai|anthropic|google)\\/.{1,120}$/i.test(value.scopeValue)) context.addIssue({ code: "custom", path: ["scopeValue"], message: "Model scope must use provider/model format." });
 });
 
-async function usageForTenant(tenantId: string, from: Date) {
-  const [runs, rates] = await Promise.all([
-    ExecutionRun.find({ tenantId, createdAt: { $gte: from } }).sort({ createdAt: -1 }).limit(5000)
-      .select("steps.nodeId steps.providerUsage agentSnapshots").lean(),
-    ModelPrice.find({ tenantId, effectiveFrom: { $lte: new Date() } })
-      .select("provider model inputUsdPerMillionTokens outputUsdPerMillionTokens").lean()
-  ]);
-  const totals = new Map<string, number>();
-  for (const run of runs) {
-    for (const step of run.steps ?? []) {
-      const usage = step.providerUsage;
-      if (!usage?.provider || !usage.model) continue;
-      const estimate = estimateUsageCost(usage, rates);
-      if (estimate.estimatedCostUsd === null) continue;
-      totals.set("tenant:*", (totals.get("tenant:*") ?? 0) + estimate.estimatedCostUsd);
-      const modelKey = usage.provider + "/" + usage.model.toLowerCase();
-      totals.set("model:" + modelKey, (totals.get("model:" + modelKey) ?? 0) + estimate.estimatedCostUsd);
-      const snapshot = (run.agentSnapshots ?? []).find(item => (item as { nodeId?: string }).nodeId === step.nodeId) as { agentId?: string } | undefined;
-      if (snapshot?.agentId) totals.set("agent:" + snapshot.agentId, (totals.get("agent:" + snapshot.agentId) ?? 0) + estimate.estimatedCostUsd);
-    }
-  }
-  return { totals, sampled: runs.length === 5000 };
-}
-
 budgetsRouter.get("/", requirePermission("budgets:read"), asyncHandler(async (_req, res) => {
   const auth = res.locals.auth as AuthContext;
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const [policies, usage] = await Promise.all([
     BudgetPolicy.find({ tenantId: auth.tenantId }).sort({ scopeType: 1, scopeValue: 1 }).lean(),
-    usageForTenant(auth.tenantId, monthStart)
+    getTenantBudgetUsage(auth.tenantId, monthStart)
   ]);
   const data = policies.map(policy => {
     const spent = usage.totals.get(policy.scopeType + ":" + policy.scopeValue) ?? 0;
