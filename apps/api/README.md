@@ -91,7 +91,7 @@ Graph validation enforces exactly one start node, at least one end node, unique 
 
 Workflow versions are append-only snapshots with a SHA-256 graph hash and Mongoose immutable fields. Promotion updates the active-version pointer and publishes the workflow; promoting an earlier version provides the rollback mechanism. All workflow and version reads/writes filter by the authenticated tenant ID from server-side auth context. Workflow lifecycle and version events are written to the tenant audit log. Secret values must never be placed in workflow configuration; use secret-reference URIs only.
 
-The workflow API and graph-validation foundation is paired with a React workflow studio and a durable MongoDB-backed execution runtime. The runtime pins immutable graph snapshots, queues idempotent runs, checkpoints node traces, uses expiring worker leases, supports cooperative cancellation and manual retry, and evaluates only literal boolean conditions. Agent provider execution and human approval handling remain disabled until their respective adapters/runtimes are configured. See [Workflow execution runtime](../../docs/workflow-execution-runtime.md) for API and operational details. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
+The workflow API and graph-validation foundation is paired with a React workflow studio and a durable MongoDB-backed execution runtime. The runtime pins immutable graph snapshots, queues idempotent runs, checkpoints node traces, uses expiring worker leases, supports cooperative cancellation and manual retry, and evaluates only literal boolean conditions. Agent provider execution remains disabled until a provider adapter and secrets-manager integration are configured. Human approval nodes are supported by the approval runtime documented below. See [Workflow execution runtime](../../docs/workflow-execution-runtime.md) for API and operational details. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
 
 ## Role baseline
 
@@ -125,3 +125,15 @@ Approval nodes may configure `title`, `description`, `assigneeRole` (owner, admi
 Decision writes use a MongoDB transaction across the approval and execution-run documents. The database must run as a replica set or transaction-capable sharded cluster; standalone MongoDB deployments cannot provide the atomic decision guarantee. Reviewer access is tenant-scoped and constrained to the assigned identity or role. Owner and admin members may escalate role-assigned requests; a request assigned to a specific user remains restricted to that identity. Raw credentials are not accepted or stored in approval records.
 
 This runtime deliberately treats rejection and expiry as terminal failures. Configurable reject branches, delegation, escalation policies, quorum approvals, notifications, and a richer approval audit timeline remain future work.
+
+
+## Observability foundation
+
+| Method | Endpoint | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/observability/overview?range=24h` | `runs:read` | Tenant-scoped run totals, success rate, average duration, throughput and pending approval count |
+| GET | `/observability/runs/:runId/trace` | `runs:read` | Sanitized node-level execution timeline for a tenant-owned run |
+
+Ranges are `24h`, `7d`, and `30d`. The overview reads at most 5,000 runs and reports when the result is sampled. Trace responses omit graph payloads, node outputs, idempotency keys, lease tokens and raw error messages. Error codes are returned instead of raw provider or workflow error text.
+
+These metrics are operational estimates derived from execution records, not billing-grade telemetry. Provider token usage, model cost, distributed trace propagation, streaming logs and alerting require future provider/event instrumentation. See [Observability foundation](../../docs/observability-foundation.md).
