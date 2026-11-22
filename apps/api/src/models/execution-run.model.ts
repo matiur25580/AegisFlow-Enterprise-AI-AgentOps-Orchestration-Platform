@@ -15,6 +15,7 @@ const runSchema = new Schema({
   graphHash: { type: String, required: true, immutable: true },
   nodes: { type: [Schema.Types.Mixed], required: true, immutable: true },
   edges: { type: [Schema.Types.Mixed], required: true, immutable: true },
+  agentSnapshots: { type: [Schema.Types.Mixed], default: [], immutable: true },
   status: { type: String, enum: ["queued", "running", "waiting_approval", "succeeded", "failed", "cancelled"], default: "queued", required: true },
   idempotencyKey: { type: String, required: true, immutable: true, maxlength: 128 },
   requestedBy: { type: Schema.Types.ObjectId, ref: "User", required: true, immutable: true },
