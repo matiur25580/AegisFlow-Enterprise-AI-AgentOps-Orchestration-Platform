@@ -31,7 +31,7 @@ secretsRouter.post("/", requirePermission("secrets:manage"), asyncHandler(async 
   if (existing && existing.provider !== input.provider) {
     res.status(409).json({ error: { code: "SECRET_PROVIDER_IMMUTABLE", message: "A secret reference cannot be reassigned to a different provider." } }); return;
   }
-  const encrypted = encryptSecret(input.apiKey);
+  const encrypted = encryptSecret(input.apiKey, { tenantId: auth.tenantId, ref, provider: input.provider });
   const secret = await Secret.findOneAndUpdate(
     { tenantId: auth.tenantId, ref },
     { $set: { name: input.name, provider: input.provider, ...encrypted, updatedBy: auth.userId },
