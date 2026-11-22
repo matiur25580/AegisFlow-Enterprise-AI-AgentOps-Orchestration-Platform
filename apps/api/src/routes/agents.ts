@@ -20,7 +20,7 @@ const createSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(32)).max(20).optional().default([]),
   provider: z.enum(["openai", "anthropic", "google", "azure-openai", "bedrock", "custom"]),
   model: z.string().trim().min(1).max(120),
-  secretRef: z.string().trim().min(3).max(200).regex(/^(vault|aws-sm|azure-kv|gcp-sm):[a-zA-Z0-9/_-]+$/).nullable().optional(),
+  secretRef: z.string().trim().min(3).max(200).regex(/^(vault|aws-sm|azure-kv|gcp-sm):[a-zA-Z0-9/_-]+$|^aegisflow:[a-z0-9]+(?:-[a-z0-9]+)*$/).nullable().optional(),
   version: z.object({
     changelog: z.string().max(1000).optional().default("Initial version"),
     systemPrompt: z.string().min(1).max(30000),
