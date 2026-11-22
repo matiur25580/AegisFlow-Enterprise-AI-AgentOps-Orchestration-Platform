@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import WorkflowStudio from "./components/WorkflowStudio";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bot, Boxes, ChevronDown, CircleHelp,
   Command, CreditCard, GitBranch, LayoutDashboard, LifeBuoy, LockKeyhole,
@@ -75,6 +76,7 @@ function App() {
         </header>
 
         <div className="content">
+          {active === "Workflow studio" ? <WorkflowStudio /> : <>
           <div className="page-heading">
             <div><div className="eyebrow"><span className="live-dot" /> SYSTEM OPERATIONAL</div><h1>{active === "Overview" ? "Good morning, Matiur" : active}</h1><p>Here's what's happening across your AI operations today.</p></div>
             <div className="heading-actions"><button className="button-secondary"><GitBranch size={15} /> Production <ChevronDown size={14} /></button><button className="button-primary"><Plus size={16} /> Create agent</button></div>
@@ -131,6 +133,7 @@ function App() {
             </div>
           </section>
           <footer className="footer"><span>© 2026 AegisFlow Systems</span><span><i className="live-dot"/> All systems operational</span><span>Platform preview · v0.1.0</span></footer>
+          </>}
         </div>
       </main>
       {sidebarOpen && <button className="mobile-scrim" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
