@@ -13,7 +13,8 @@ const LEASE_MS = 30_000;
 const POLL_MS = 1_000;
 let poller: ReturnType<typeof setInterval> | null = null;
 let polling = false;
-type Step = { nodeId: string; nodeType: string; label: string; status: "running" | "waiting_approval" | "succeeded" | "failed"; attempt: number; startedAt: Date; completedAt?: Date | null; output?: unknown; providerUsage?: { inputTokens: number | null; outputTokens: number | null; durationMs: number; provider: string; model: string } | null; error?: string | null };\nconst providerExecutor = new AgentProviderExecutor(new MongoSecretResolver());
+type Step = { nodeId: string; nodeType: string; label: string; status: "running" | "waiting_approval" | "succeeded" | "failed"; attempt: number; startedAt: Date; completedAt?: Date | null; output?: unknown; providerUsage?: { inputTokens: number | null; outputTokens: number | null; durationMs: number; provider: string; model: string } | null; error?: string | null };
+const providerExecutor = new AgentProviderExecutor(new MongoSecretResolver());
 
 async function checkpoint(runId: string, token: string, values: Record<string, unknown>): Promise<void> {
   const result = await ExecutionRun.updateOne({ _id: runId, leaseToken: token, status: "running" }, { $set: values });
