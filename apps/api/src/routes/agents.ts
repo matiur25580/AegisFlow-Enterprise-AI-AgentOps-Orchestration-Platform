@@ -2,6 +2,7 @@ import { Router, type Request } from "express";
 import { z } from "zod";
 import { Agent } from "../models/agent.model.js";
 import { AgentVersion } from "../models/agent-version.model.js";
+import { Secret } from "../models/secret.model.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { requirePermission } from "../middleware/authorize.js";
 import { asyncHandler } from "../utils/async-handler.js";
@@ -64,6 +65,10 @@ agentsRouter.get("/", requirePermission("agents:read"), asyncHandler(async (req,
 agentsRouter.post("/", requirePermission("agents:write"), asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
   const input = createSchema.parse(req.body);
+  if (input.secretRef) {
+    const secret = await Secret.findOne({ tenantId: auth.tenantId, ref: input.secretRef, provider: input.provider }).select("_id").lean();
+    if (!secret) { res.status(409).json({ error: { code: "AGENT_SECRET_REFERENCE_INVALID", message: "The secret reference must exist in this workspace and match the agent provider." } }); return; }
+  }
   const agent = await Agent.create({
     tenantId: auth.tenantId, name: input.name, slug: input.slug, description: input.description,
     ownerUserId: auth.userId, team: input.team, tags: input.tags, provider: input.provider,
@@ -83,7 +88,6 @@ agentsRouter.patch("/:agentId/secret-reference", requirePermission("agents:write
   const agent = await Agent.findOne({ _id: agentId, tenantId: auth.tenantId, status: { $ne: "archived" } }).select("_id provider").lean();
   if (!agent) { res.status(404).json({ error: { code: "AGENT_NOT_FOUND_OR_LOCKED", message: "Agent not found or archived." } }); return; }
   if (input.secretRef) {
-    const { Secret } = await import("../models/secret.model.js");
     const secret = await Secret.findOne({ tenantId: auth.tenantId, ref: input.secretRef, provider: agent.provider }).select("_id").lean();
     if (!secret) { res.status(409).json({ error: { code: "AGENT_SECRET_REFERENCE_INVALID", message: "The secret reference must exist in this workspace and match the agent provider." } }); return; }
   }
