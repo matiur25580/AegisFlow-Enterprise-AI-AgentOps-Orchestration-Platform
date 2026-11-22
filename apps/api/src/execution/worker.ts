@@ -55,7 +55,7 @@ async function processClaim(runId: string, token: string): Promise<void> {
       const allowedRoles = ["owner", "admin", "operator", "viewer"];
       const assigneeRole = typeof configuredRole === "string" && allowedRoles.includes(configuredRole) ? configuredRole : "operator";
       const configuredUser = node.config.assigneeUserId;
-      const assigneeUserId = typeof configuredUser === "string" && /^[a-f\\d]{24}$/i.test(configuredUser) ? configuredUser : null;
+      const assigneeUserId = typeof configuredUser === "string" && /^[a-f\d]{24}$/i.test(configuredUser) ? configuredUser : null;
       const timeoutValue = Number(node.config.timeoutMinutes);
       const timeoutMinutes = Number.isFinite(timeoutValue) ? Math.min(10080, Math.max(1, Math.floor(timeoutValue))) : 1440;
       const dueAt = new Date(Date.now() + timeoutMinutes * 60_000);
@@ -108,6 +108,27 @@ async function processClaim(runId: string, token: string): Promise<void> {
     }
   }
   await checkpoint(runId, token, { status: "failed", lastError: "Execution ended without reaching a terminal node.", completedAt: new Date(), leaseToken: null, leaseExpiresAt: null });
+}
+
+async function expirePendingApprovals(): Promise<void> {
+  const now = new Date();
+  const expired = await Approval.find({ status: "pending", dueAt: { $lte: now } }).sort({ dueAt: 1 }).limit(100).lean();
+  for (const approval of expired) {
+    const changed = await Approval.updateOne(
+      { _id: approval._id, tenantId: approval.tenantId, status: "pending", dueAt: { $lte: now } },
+      { $set: { status: "expired", decidedAt: now, decisionComment: "Approval deadline elapsed." } }
+    );
+    if (changed.modifiedCount !== 1) continue;
+    const run = await ExecutionRun.findOne({ _id: approval.runId, tenantId: approval.tenantId, status: "waiting_approval", currentNodeId: approval.nodeId });
+    if (run) {
+      run.status = "failed";
+      run.lastError = "APPROVAL_EXPIRED: Human approval deadline elapsed.";
+      run.completedAt = now;
+      run.steps = run.steps.map(step => step.nodeId === approval.nodeId ? { ...step.toObject(), status: "failed", completedAt: now, error: "Human approval deadline elapsed." } as typeof step : step);
+      await run.save();
+    }
+    await writeAuditEvent({ tenantId: String(approval.tenantId), action: "approval.expired", resourceType: "approval", resourceId: String(approval._id), metadata: { runId: String(approval.runId), nodeId: approval.nodeId } });
+  }
 }
 
 export async function processNextExecution(): Promise<boolean> {
