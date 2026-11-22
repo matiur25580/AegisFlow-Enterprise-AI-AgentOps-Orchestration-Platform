@@ -32,3 +32,11 @@ The root workspace and service-specific setup instructions will be added in the 
 ## License
 
 Proprietary project. All rights reserved.
+
+
+## Security and contribution guidance
+
+- [Security policy](SECURITY.md) — responsible vulnerability reporting and project security expectations.
+- [Contributing guide](CONTRIBUTING.md) — engineering standards and pull request expectations.
+
+These documents describe intended safeguards and contribution practices; they do not imply that planned product controls are already implemented or independently verified.
