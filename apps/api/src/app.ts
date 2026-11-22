@@ -17,6 +17,7 @@ import { runsRouter } from "./routes/runs.js";
 import { approvalsRouter } from "./routes/approvals.js";
 import { observabilityRouter } from "./routes/observability.js";
 import { evaluationsRouter } from "./routes/evaluations.js";
+import { secretsRouter } from "./routes/secrets.js";
 
 export const app = express();
 
