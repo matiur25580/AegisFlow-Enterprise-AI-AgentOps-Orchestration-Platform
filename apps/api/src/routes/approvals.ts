@@ -77,6 +77,9 @@ approvalsRouter.post("/:approvalId/decision", requirePermission("approvals:decid
         _id: existing.runId, tenantId: auth.tenantId, status: "waiting_approval", currentNodeId: existing.nodeId
       }).session(session);
       if (!run) throw Object.assign(new Error("The workflow run is no longer waiting for this approval."), { statusCode: 409, code: "APPROVAL_RUN_STATE_CONFLICT" });
+      if (!run.steps.some(step => step.nodeId === existing.nodeId && step.status === "waiting_approval")) {
+        throw Object.assign(new Error("The execution trace does not contain a waiting step for this approval."), { statusCode: 409, code: "APPROVAL_STEP_STATE_CONFLICT" });
+      }
 
       const updated = await Approval.findOneAndUpdate(
         { _id: approvalId, tenantId: auth.tenantId, status: "pending", dueAt: { $gt: now } },
