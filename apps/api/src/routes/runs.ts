@@ -58,7 +58,7 @@ runsRouter.get("/", requirePermission("runs:read"), asyncHandler(async (req, res
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
   const filter: Record<string, unknown> = { tenantId: auth.tenantId };
-  if (typeof req.query.status === "string" && ["queued", "running", "succeeded", "failed", "cancelled"].includes(req.query.status)) filter.status = req.query.status;
+  if (typeof req.query.status === "string" && ["queued", "running", "waiting_approval", "succeeded", "failed", "cancelled"].includes(req.query.status)) filter.status = req.query.status;
   if (typeof req.query.workflowId === "string") filter.workflowId = idSchema.parse(req.query.workflowId);
   const [items, total] = await Promise.all([
     ExecutionRun.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select("-nodes -edges").lean(),
