@@ -20,7 +20,7 @@
     "zod": "^4.6.7",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
-    "express-rate-limit": "^7.5.0",
+    "express-rate-limit": "^8.7.5",
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
