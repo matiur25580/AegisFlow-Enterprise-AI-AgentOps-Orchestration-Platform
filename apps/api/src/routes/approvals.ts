@@ -95,7 +95,7 @@ approvalsRouter.post("/:approvalId/decision", requirePermission("approvals:decid
           error: input.decision === "reject" ? "Human reviewer rejected this workflow step." : null
         };
       });
-      run.steps = steps as typeof run.steps;
+      run.set("steps", steps);
       if (input.decision === "approve") {
         run.status = "queued";
         run.currentNodeId = existing.nextNodeId;
