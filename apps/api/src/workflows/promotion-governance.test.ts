@@ -18,7 +18,7 @@ test("allows promotion when every referenced active agent version has a passing 
 test("blocks promotion when an agent has no evaluation for its active version", () => {
   const result = assessWorkflowPromotion([agent], []);
   assert.equal(result.eligible, false);
-  assert.match(result.reasons[0], /no evaluation for active version 3/);
+  assert.match(result.reasons[0]!, /no evaluation for active version 3/);
 });
 
 test("blocks promotion when the latest evaluation gate is blocked", () => {
