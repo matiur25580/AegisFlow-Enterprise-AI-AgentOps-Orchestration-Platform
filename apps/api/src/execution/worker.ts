@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 import { ExecutionRun } from "../models/execution-run.model.js";
 import { Approval } from "../models/approval.model.js";
+import { AgentProviderExecutor } from "../providers/executor.js";
+import { MongoSecretResolver } from "../providers/secret-vault.js";
+import { ProviderExecutionError, type AgentProviderConfig } from "../providers/types.js";
 import { writeAuditEvent } from "../auth/audit.js";
 import { logger } from "../config/logger.js";
 import { ExecutionError, nextNodeId, retryDelayMs, type RuntimeEdge, type RuntimeNode } from "./engine.js";
@@ -10,17 +13,30 @@ const LEASE_MS = 30_000;
 const POLL_MS = 1_000;
 let poller: ReturnType<typeof setInterval> | null = null;
 let polling = false;
-type Step = { nodeId: string; nodeType: string; label: string; status: "running" | "waiting_approval" | "succeeded" | "failed"; attempt: number; startedAt: Date; completedAt?: Date | null; output?: unknown; error?: string | null };
+type Step = { nodeId: string; nodeType: string; label: string; status: "running" | "waiting_approval" | "succeeded" | "failed"; attempt: number; startedAt: Date; completedAt?: Date | null; output?: unknown; providerUsage?: { inputTokens: number | null; outputTokens: number | null; durationMs: number; provider: string; model: string } | null; error?: string | null };\nconst providerExecutor = new AgentProviderExecutor(new MongoSecretResolver());
 
 async function checkpoint(runId: string, token: string, values: Record<string, unknown>): Promise<void> {
   const result = await ExecutionRun.updateOne({ _id: runId, leaseToken: token, status: "running" }, { $set: values });
   if (result.modifiedCount !== 1) throw new ExecutionError("Execution lease was lost.", "EXECUTION_LEASE_LOST", true);
 }
 
-async function executeNode(node: RuntimeNode): Promise<unknown> {
-  if (node.type === "start" || node.type === "end") return null;
-  if (node.type === "condition") return { evaluated: String(node.config.expression).toLowerCase() };
-  if (node.type === "agent") throw new ExecutionError("No provider executor is configured. Connect a secrets manager and provider adapter before running agent nodes.", "AGENT_EXECUTOR_NOT_CONFIGURED");
+async function executeNode(node: RuntimeNode, run: { tenantId: unknown; agentSnapshots?: unknown[] }, previousSteps: Step[]): Promise<{ output: unknown; providerUsage?: Step["providerUsage"] }> {
+  if (node.type === "start" || node.type === "end") return { output: null };
+  if (node.type === "condition") return { output: { evaluated: String(node.config.expression).toLowerCase() } };
+  if (node.type === "agent") {
+    const snapshot = (run.agentSnapshots ?? []).find((item) => (item as { nodeId?: string }).nodeId === node.id) as (AgentProviderConfig & { agentVersion?: number }) | undefined;
+    if (!snapshot) throw new ExecutionError("The pinned agent version is missing from this execution snapshot.", "AGENT_SNAPSHOT_MISSING");
+    const result = await providerExecutor.execute({ ...snapshot, tenantId: String(run.tenantId) }, {
+      input: node.config.input ?? null,
+      previousSteps: previousSteps.filter(step => step.status === "succeeded").map(step => ({ nodeId: step.nodeId, output: step.output }))
+    });
+    let output: unknown = result.text;
+    if (snapshot.responseFormat === "json") {
+      try { output = JSON.parse(result.text); }
+      catch { throw new ExecutionError("Agent returned invalid JSON for a JSON response format.", "AGENT_INVALID_JSON_OUTPUT"); }
+    }
+    return { output, providerUsage: { ...result.usage, durationMs: result.durationMs, provider: result.provider, model: result.model } };
+  }
   throw new ExecutionError("Unsupported workflow node type.", "UNSUPPORTED_NODE_TYPE");
 }
 
