@@ -22,7 +22,10 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 app.use(cookieParser());
 app.use(requestContext);
-app.use((req, res, next) => {\n  logger.info({ method: req.method, path: req.path, requestId: res.locals.requestId }, "request started");\n  next();\n});
+app.use((req, res, next) => {
+  logger.info({ method: req.method, path: req.path, requestId: res.locals.requestId }, "request started");
+  next();
+});
 
 app.get("/", (_req, res) => res.json({ name: "AegisFlow API", version: "0.2.0", docs: "See apps/api/README.md." }));
 app.use("/health", healthRouter);
