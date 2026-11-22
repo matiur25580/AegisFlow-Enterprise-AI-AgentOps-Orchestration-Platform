@@ -44,6 +44,7 @@ app.use(`${env.API_PREFIX}/workflows`, workflowsRouter);
 app.use(`${env.API_PREFIX}/approvals`, approvalsRouter);
 app.use(`${env.API_PREFIX}/observability`, observabilityRouter);
 app.use(`${env.API_PREFIX}/evaluations`, evaluationsRouter);
+app.use(`${env.API_PREFIX}/secrets`, secretsRouter);
 app.use(env.API_PREFIX, runsRouter);
 app.use(notFound);
 app.use(errorHandler);
