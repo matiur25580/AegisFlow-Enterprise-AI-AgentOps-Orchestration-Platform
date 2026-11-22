@@ -150,3 +150,12 @@ These metrics are operational estimates derived from execution records, not bill
 | GET | `/evaluations/runs` | `evaluations:read` | List recent evaluation runs |
 
 The deterministic scoring modes are `exact_match` (structural JSON equality) and `contains` (case-sensitive string substring). Scores use case weights and range from 0 to 100. Current APIs score submitted outputs; they do not invoke providers or claim model-judge quality. See [Evaluation and quality intelligence](../../docs/evaluation-quality-intelligence.md).
+
+
+## AI provider adapter foundation
+
+The API contains provider-independent HTTP adapters for OpenAI Chat Completions, Anthropic Messages, and Google Gemini. The adapters return normalized response text, elapsed time, and provider-reported token usage.
+
+Credentials are resolved only through the injected tenant-aware `SecretResolver` contract. No built-in environment fallback is provided. Live provider execution remains disabled in the workflow worker until a real secrets-manager implementation is composed into the worker and agent versions are pinned into execution snapshots.
+
+See [AI provider adapter foundation](../../docs/ai-provider-adapter-foundation.md) for supported providers, error behavior, and the integration boundary.
