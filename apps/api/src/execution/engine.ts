@@ -16,6 +16,7 @@ export function retryDelayMs(attempt: number, baseMs = 1_000, maxMs = 60_000): n
   return Math.min(maxMs, baseMs * (2 ** (Math.max(1, Math.floor(attempt)) - 1)));
 }
 
+// Resolve the next workflow node deterministically and reject ambiguous or unsupported branching.
 export function nextNodeId(node: RuntimeNode, edges: RuntimeEdge[]): string | null {
   const outgoing = edges.filter(edge => edge.source === node.id);
   if (node.type === "end") return null;
