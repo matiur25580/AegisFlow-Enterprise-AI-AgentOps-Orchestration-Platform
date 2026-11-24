@@ -6,6 +6,7 @@ import { Tenant } from "../models/tenant.model.js";
 import { verifyAccessToken } from "../auth/tokens.js";
 import type { AuthContext } from "../auth/types.js";
 
+// Revalidate user, tenant membership, and refresh-session status after verifying the access token.
 export const authenticate: RequestHandler = async (req, res, next) => {
   const header = req.header("authorization");
   if (!header?.startsWith("Bearer ")) {
