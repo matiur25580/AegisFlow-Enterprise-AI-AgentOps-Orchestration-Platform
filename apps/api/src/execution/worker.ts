@@ -16,6 +16,7 @@ let polling = false;
 type Step = { nodeId: string; nodeType: string; label: string; status: "running" | "waiting_approval" | "succeeded" | "failed"; attempt: number; startedAt: Date; completedAt?: Date | null; output?: unknown; providerUsage?: { inputTokens: number | null; outputTokens: number | null; durationMs: number; provider: string; model: string } | null; error?: string | null };
 const providerExecutor = new AgentProviderExecutor(new MongoSecretResolver());
 
+// Persist progress only while this worker still owns the active execution lease.
 async function checkpoint(runId: string, token: string, values: Record<string, unknown>): Promise<void> {
   const result = await ExecutionRun.updateOne({ _id: runId, leaseToken: token, status: "running" }, { $set: values });
   if (result.modifiedCount !== 1) throw new ExecutionError("Execution lease was lost.", "EXECUTION_LEASE_LOST", true);
