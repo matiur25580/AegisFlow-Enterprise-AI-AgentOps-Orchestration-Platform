@@ -6,6 +6,7 @@ export type BudgetPolicyForAdmission = {
   enabled: boolean;
 };
 
+// Identify enabled hard-limit policies that apply to the tenant or agents/models in the current run.
 export function findBlockingBudgets(
   policies: BudgetPolicyForAdmission[],
   spentByScope: Map<string, number>,
