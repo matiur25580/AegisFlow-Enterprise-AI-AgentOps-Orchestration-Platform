@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { hasPermission, type Permission } from "../auth/permissions.js";
 import type { AuthContext } from "../auth/types.js";
 
+// Gate the route using the permission map associated with the authenticated tenant role.
 export function requirePermission(permission: Permission): RequestHandler {
   return (_req, res, next) => {
     const auth = res.locals.auth as AuthContext | undefined;
