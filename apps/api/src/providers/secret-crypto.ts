@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 export type EncryptedValue = { ciphertext: string; iv: string; authTag: string };
+// Encrypt provider credentials with AES-256-GCM and bind optional context as authenticated additional data.
 export function encryptWithKey(plaintext: string, key: Buffer, associatedData = ""): EncryptedValue {
   if (key.length !== 32) throw new Error("AES-256-GCM requires a 32-byte key.");
   const iv = randomBytes(12);
