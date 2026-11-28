@@ -88,8 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyAuth]);
 
   const loadWorkspaces = useCallback(async () => {
-    const result = await api<{ data: WorkspaceMembership[] }>("/auth/workspaces");
-    setWorkspaces(result.data);
+    const result = await api<WorkspaceMembership[]>("/auth/workspaces");
+    setWorkspaces(result);
   }, [api]);
 
   const switchWorkspace = useCallback(async (tenantId: string) => {
