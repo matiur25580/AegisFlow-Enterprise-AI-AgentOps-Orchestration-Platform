@@ -10,11 +10,22 @@ All API routes are mounted below `/api/v1`.
 | POST | `/auth/login` | Authenticate and create a refresh session |
 | POST | `/auth/refresh` | Rotate the HttpOnly refresh cookie |
 | POST | `/auth/logout` | Revoke the current session |
+| POST | `/auth/accept-invitation` | Accept a one-time invitation and establish an account session |
+| POST | `/auth/switch-workspace` | Switch to another active tenant membership |
+| GET | `/auth/sessions` | List current-user sessions in this workspace |
+| DELETE | `/auth/sessions/:sessionId` | Revoke a selected workspace session |
+| POST | `/auth/sessions/revoke-others` | Revoke other sessions in this workspace |
 | GET | `/auth/me` | Return the authenticated identity |
 | GET | `/workspace/summary` | Permission-protected tenant context |
+| GET | `/workspace/members` | List tenant-scoped members and roles |
+| PATCH | `/workspace/members/:membershipId/role` | Change a member role with owner/admin safeguards |
+| PATCH | `/workspace/members/:membershipId/status` | Suspend or reactivate a member |
+| GET | `/workspace/invitations` | List tenant-scoped invitations |
+| POST | `/workspace/invitations` | Create a seven-day invitation |
+| POST | `/workspace/invitations/:invitationId/revoke` | Revoke a pending invitation |
 | GET | `/workspace/audit-events` | Tenant-scoped audit events |
 
-Protected requests require `Authorization: Bearer <access-token>`. Tenant identity is derived exclusively from the verified membership and is never accepted from request input.
+Protected requests require `Authorization: Bearer <access-token>`. Tenant identity is derived exclusively from the verified membership and is never accepted from request input. Workspace switching requires a separate active membership; a client-supplied tenant ID is only a lookup selector and is never trusted as authorization.
 
 ## Agent registry and lifecycle
 
@@ -94,6 +105,14 @@ Workflow versions are append-only snapshots with a SHA-256 graph hash and Mongoo
 
 The workflow API and graph-validation foundation is paired with a React workflow studio and a durable MongoDB-backed execution runtime. The runtime pins immutable workflow and active agent-version snapshots, queues idempotent runs, checkpoints node traces, uses renewable worker leases, supports cooperative cancellation and manual retry, and evaluates only literal boolean conditions. Agent nodes now execute through the OpenAI, Anthropic and Google adapters using tenant-scoped encrypted secret references. Human approval nodes are supported by the approval runtime documented below. See [Workflow execution runtime](../../docs/workflow-execution-runtime.md) and [AI provider execution and secrets vault](../../docs/ai-provider-adapter-foundation.md) for API and operational details. Mongoose immutability is an application-level guard, not a tamper-proof archival store; use database roles and external audit retention for stronger controls.
 
+## Invitation and membership governance
+
+Invitations are tenant-scoped, use 256-bit random one-time tokens, store only SHA-256 token hashes, and expire after seven days. The raw token is returned once to the authorized inviter because outbound email delivery is not configured; share it through an approved channel and do not place it in logs or tickets. Acceptance requires the invited email address. A new account is created only when that email is not already registered; existing accounts must prove possession of their password. Invitation acceptance creates an active membership and a refresh session.
+
+Only owners can invite or assign administrators. Administrators can manage operator/viewer memberships but cannot change administrator roles. The owner membership, and the acting user's own membership, are protected from role/status changes through these endpoints. Member, role, invitation and session changes are written to tenant-scoped audit events. Invitations are not email-verified until the recipient accepts the token; delivery and bounce handling are not included.
+
+Workspace session listing and revocation are scoped to the authenticated user and current tenant. Workspace switching verifies a separate active membership and rotates the refresh session. This is not SSO or centralized identity federation.
+
 ## Role baseline
 
 - `owner`: all defined permissions
@@ -105,7 +124,7 @@ Permission checks deny by default.
 
 ## Security and operational limitations
 
-This is an evolving platform foundation, not a production certification. Invitations, password reset, MFA, SSO, billing, organization switching, external secret-manager resolution, agent execution, and automated database-backed integration tests remain future milestones. Use TLS, managed secrets, backups, replica-set deployment, monitoring and a reviewed retention policy before production use.
+This is an evolving platform foundation, not a production certification. Password reset, MFA, SSO, billing, external secret-manager resolution, and automated database-backed identity integration tests remain future milestones. Use TLS, managed secrets, backups, replica-set deployment, monitoring and a reviewed retention policy before production use.
 
 ## Human approval runtime
 
