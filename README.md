@@ -16,6 +16,7 @@ AegisFlow is a multi-tenant control-plane foundation for registering, orchestrat
 - Workflow promotion checks against referenced agent versions and evaluation evidence.
 - Promotion history snapshots and explainable blocked decisions.
 - Cost intelligence, budget alerts, approvals and run/trace workspaces.
+- Tenant-scoped member administration, one-time invitations, role governance, workspace switching and session revocation.
 
 **Operational boundary:** promotion records are point-in-time evidence snapshots. They do not deploy infrastructure or automatically re-evaluate when referenced agents change after promotion. Human approval and evaluation gates are not a substitute for runtime safety controls.
 
