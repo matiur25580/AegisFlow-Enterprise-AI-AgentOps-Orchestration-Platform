@@ -217,6 +217,20 @@ authRouter.post("/sessions/revoke-others", authenticate, asyncHandler(async (_re
   res.json({ data: { revokedCount: result.modifiedCount } });
 }));
 
+
+authRouter.get("/workspaces", authenticate, asyncHandler(async (_req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const memberships = await Membership.find({ userId: auth.userId, status: "active" }).sort({ createdAt: 1 }).lean();
+  const tenantIds = memberships.map(membership => membership.tenantId);
+  const tenants = await Tenant.find({ _id: { $in: tenantIds }, status: "active" }).select("name slug plan").lean();
+  const tenantById = new Map(tenants.map(item => [String(item._id), item]));
+  const data = memberships.flatMap(membership => {
+    const workspace = tenantById.get(String(membership.tenantId));
+    return workspace ? [{ id: String(membership._id), role: membership.role, tenant: { id: String(workspace._id), name: workspace.name, slug: workspace.slug, plan: workspace.plan } }] : [];
+  });
+  res.json({ data });
+}));
+
 authRouter.get("/me", authenticate, asyncHandler(async (_req, res) => {
   const auth = res.locals.auth as AuthContext;
   const tenant = await Tenant.findById(auth.tenantId).select("name slug plan").lean();
