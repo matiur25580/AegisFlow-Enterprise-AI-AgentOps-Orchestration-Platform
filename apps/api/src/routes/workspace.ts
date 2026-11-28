@@ -7,7 +7,7 @@ import { AuditEvent } from "../models/audit-event.model.js";
 import { Invitation } from "../models/invitation.model.js";
 import { Membership } from "../models/membership.model.js";
 import { User } from "../models/user.model.js";
-import { permissions, hasPermission, type Role } from "../auth/permissions.js";
+import { permissions, hasPermission } from "../auth/permissions.js";
 import { hashToken } from "../auth/tokens.js";
 import type { AuthContext } from "../auth/types.js";
 import { asyncHandler } from "../utils/async-handler.js";
