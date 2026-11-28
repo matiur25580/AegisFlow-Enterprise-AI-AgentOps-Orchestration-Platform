@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { Types } from "mongoose";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { env } from "../config/env.js";
@@ -6,6 +7,7 @@ import { User } from "../models/user.model.js";
 import { Tenant } from "../models/tenant.model.js";
 import { Membership } from "../models/membership.model.js";
 import { RefreshSession } from "../models/refresh-session.model.js";
+import { Invitation } from "../models/invitation.model.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { clearRefreshCookie, readRefreshCookie, setRefreshCookie } from "../auth/cookies.js";
@@ -143,8 +145,167 @@ authRouter.post("/logout", authenticate, asyncHandler(async (_req, res) => {
   res.status(204).end();
 }));
 
+
+const workspaceSwitchSchema = z.object({ tenantId: z.string().regex(/^[a-f\\d]{24}$/i) }).strict();
+const sessionIdSchema = z.string().regex(/^[a-f\\d]{24}$/i);
+
+authRouter.post("/switch-workspace", authenticate, asyncHandler(async (req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const input = workspaceSwitchSchema.parse(req.body);
+  const [membership, tenant] = await Promise.all([
+    Membership.findOne({ userId: auth.userId, tenantId: new Types.ObjectId(input.tenantId), status: "active" }),
+    Tenant.findOne({ _id: new Types.ObjectId(input.tenantId), status: "active" })
+  ]);
+  if (!membership || !tenant) {
+    res.status(403).json({ error: { code: "WORKSPACE_ACCESS_DENIED", message: "You do not have an active membership in this workspace." }, requestId: res.locals.requestId });
+    return;
+  }
+  const { refreshToken, session: replacement } = await createSession(auth.userId, input.tenantId, req);
+  const revoked = await RefreshSession.findOneAndUpdate(
+    { _id: auth.sessionId, userId: auth.userId, tenantId: auth.tenantId, revokedAt: null, expiresAt: { $gt: new Date() } },
+    { $set: { revokedAt: new Date(), replacedByHash: hashToken(refreshToken) } },
+    { new: true }
+  );
+  if (!revoked) {
+    await RefreshSession.deleteOne({ _id: replacement._id, userId: auth.userId });
+    res.status(401).json({ error: { code: "SESSION_INVALID", message: "Your current session is no longer valid." }, requestId: res.locals.requestId });
+    return;
+  }
+  const accessToken = issueAccessToken({ sub: auth.userId, tenantId: input.tenantId, membershipId: String(membership._id), sid: String(replacement._id) });
+  await writeAuditEvent({
+    tenantId: input.tenantId, actorUserId: auth.userId, action: "identity.workspace.switched",
+    resourceType: "tenant", resourceId: input.tenantId,
+    metadata: { previousTenantId: auth.tenantId }, requestId: res.locals.requestId, ipAddress: req.ip
+  });
+  setRefreshCookie(res, refreshToken);
+  res.json({ data: { accessToken, tokenType: "Bearer", expiresIn: env.JWT_ACCESS_TTL, tenant: { id: String(tenant._id), name: tenant.name, slug: tenant.slug }, role: membership.role } });
+}));
+
+authRouter.get("/sessions", authenticate, asyncHandler(async (_req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const sessions = await RefreshSession.find({ userId: auth.userId, tenantId: auth.tenantId })
+    .sort({ createdAt: -1 }).limit(50)
+    .select("createdAt expiresAt revokedAt userAgent")
+    .lean();
+  res.json({ data: sessions.map(session => ({ id: String(session._id), createdAt: session.createdAt, expiresAt: session.expiresAt, revokedAt: session.revokedAt, current: String(session._id) === auth.sessionId, userAgent: session.userAgent ?? null })) });
+}));
+
+authRouter.delete("/sessions/:sessionId", authenticate, asyncHandler(async (req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const sessionId = sessionIdSchema.parse(req.params.sessionId);
+  const session = await RefreshSession.findOneAndUpdate(
+    { _id: sessionId, userId: auth.userId, tenantId: auth.tenantId, revokedAt: null },
+    { $set: { revokedAt: new Date() } },
+    { new: true }
+  ).select("_id");
+  if (!session) {
+    res.status(404).json({ error: { code: "SESSION_NOT_FOUND", message: "Active session not found." }, requestId: res.locals.requestId });
+    return;
+  }
+  await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "identity.session.revoked", resourceType: "session", resourceId: sessionId, requestId: res.locals.requestId, ipAddress: req.ip });
+  if (sessionId === auth.sessionId) clearRefreshCookie(res);
+  res.status(204).end();
+}));
+
+authRouter.post("/sessions/revoke-others", authenticate, asyncHandler(async (_req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const result = await RefreshSession.updateMany(
+    { userId: auth.userId, tenantId: auth.tenantId, _id: { $ne: auth.sessionId }, revokedAt: null },
+    { $set: { revokedAt: new Date() } }
+  );
+  await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "identity.sessions.revoked_others", resourceType: "session", metadata: { revokedCount: result.modifiedCount }, requestId: res.locals.requestId });
+  res.json({ data: { revokedCount: result.modifiedCount } });
+}));
+
 authRouter.get("/me", authenticate, asyncHandler(async (_req, res) => {
   const auth = res.locals.auth as AuthContext;
   const tenant = await Tenant.findById(auth.tenantId).select("name slug plan").lean();
   res.json({ data: { user: { id: auth.userId, email: auth.email, displayName: auth.displayName }, tenant, membership: { id: auth.membershipId, role: auth.role } } });
+}));
+
+
+type AcceptedMembership = { _id: Types.ObjectId; role: "owner" | "admin" | "operator" | "viewer" };
+
+const acceptInvitationSchema = z.object({
+  token: z.string().min(32).max(128),
+  displayName: z.string().trim().min(2).max(80),
+  password: z.string().min(12).max(128)
+    .regex(/[a-z]/, "Password must contain a lowercase letter")
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[0-9]/, "Password must contain a number")
+}).strict();
+
+authRouter.post("/accept-invitation", asyncHandler(async (req, res) => {
+  const input = acceptInvitationSchema.parse(req.body);
+  const now = new Date();
+  const invitation = await Invitation.findOne({
+    tokenHash: hashToken(input.token), acceptedAt: null, revokedAt: null, expiresAt: { $gt: now }
+  });
+  if (!invitation) {
+    res.status(410).json({ error: { code: "INVITATION_INVALID", message: "This invitation is invalid, expired, or has already been used." }, requestId: res.locals.requestId });
+    return;
+  }
+
+  let user = await User.findOne({ email: invitation.email }).select("+passwordHash");
+  let createdUser = false;
+  let membership: AcceptedMembership | undefined;
+  let claimed = false;
+  let refreshSessionId: string | undefined;
+  try {
+    if (user) {
+      if (user.status !== "active" || !(await bcrypt.compare(input.password, user.passwordHash))) {
+        res.status(401).json({ error: { code: "INVITATION_ACCOUNT_AUTH_FAILED", message: "Sign in with the password for the invited email address to accept this invitation." }, requestId: res.locals.requestId });
+        return;
+      }
+    } else {
+      const passwordHash = await bcrypt.hash(input.password, 12);
+      user = await User.create({ email: invitation.email, displayName: input.displayName, passwordHash });
+      createdUser = true;
+    }
+
+    membership = await Membership.create({
+      tenantId: invitation.tenantId, userId: user._id, role: invitation.role, status: "active"
+    });
+    const accepted = await Invitation.findOneAndUpdate(
+      { _id: invitation._id, acceptedAt: null, revokedAt: null, expiresAt: { $gt: new Date() } },
+      { $set: { acceptedAt: new Date(), acceptedByUserId: user._id } },
+      { new: true }
+    );
+    if (!accepted) {
+      await Membership.deleteOne({ _id: membership._id, tenantId: invitation.tenantId });
+      membership = undefined;
+      if (createdUser) await User.deleteOne({ _id: user._id });
+      res.status(410).json({ error: { code: "INVITATION_ALREADY_USED", message: "This invitation is no longer available." }, requestId: res.locals.requestId });
+      return;
+    }
+    claimed = true;
+
+    const tenant = await Tenant.findOne({ _id: invitation.tenantId, status: "active" });
+    if (!tenant) throw Object.assign(new Error("The invited workspace is unavailable."), { statusCode: 410, code: "WORKSPACE_UNAVAILABLE" });
+    const { refreshToken, session } = await createSession(String(user._id), String(tenant._id), req);
+    refreshSessionId = String(session._id);
+    const accessToken = issueAccessToken({ sub: String(user._id), tenantId: String(tenant._id), membershipId: String(membership._id), sid: String(session._id) });
+    await writeAuditEvent({
+      tenantId: String(tenant._id), actorUserId: String(user._id), action: "identity.invitation.accepted",
+      resourceType: "invitation", resourceId: String(invitation._id),
+      metadata: { role: membership.role }, requestId: res.locals.requestId, ipAddress: req.ip
+    });
+    setRefreshCookie(res, refreshToken);
+    res.status(201).json({
+      data: {
+        accessToken, tokenType: "Bearer", expiresIn: env.JWT_ACCESS_TTL,
+        user: { id: String(user._id), email: user.email, displayName: user.displayName },
+        tenant: { id: String(tenant._id), name: tenant.name, slug: tenant.slug },
+        role: membership.role
+      }
+    });
+  } catch (error) {
+    if (claimed) {
+      await Invitation.updateOne({ _id: invitation._id, acceptedByUserId: user?._id }, { $set: { acceptedAt: null, acceptedByUserId: null } });
+    }
+    if (membership) await Membership.deleteOne({ _id: membership._id, tenantId: invitation.tenantId });
+    if (refreshSessionId) await RefreshSession.deleteOne({ _id: refreshSessionId, userId: user?._id });
+    if (createdUser && user) await User.deleteOne({ _id: user._id });
+    throw error;
+  }
 }));
