@@ -17,6 +17,21 @@ jobs:
     name: Typecheck and build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      MONGODB_URI: mongodb://127.0.0.1:27017/aegisflow_test
+      JWT_ACCESS_SECRET: ci-only-test-secret-not-for-production-0123456789abcdef
+      LOG_LEVEL: silent
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1

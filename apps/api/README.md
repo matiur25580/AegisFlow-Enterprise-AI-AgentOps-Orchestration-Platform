@@ -223,3 +223,17 @@ A tenant policy uses `{"scopeType":"tenant","scopeValue":"*"}`. Agent policies u
 The GET endpoint evaluates current UTC-month estimated usage before returning alert history. A warning is recorded when a policy crosses its configured warning threshold without yet exceeding the cap; an exceeded event is recorded when the cap is reached. A unique tenant/policy/month/event key makes repeated reads idempotent. Alert records capture the spend and limit observed at creation. All history and read mutations are tenant-scoped.
 
 When the 5,000-run accounting sample is saturated, alert creation is skipped and `meta.sampleSaturated` is true. This avoids asserting a threshold from an incomplete spend sample. Alerts are persisted in-app events, not real-time delivery. Scheduled evaluation and external email/webhook delivery are not included.
+
+
+## Identity integration tests
+
+The API test suite includes MongoDB-backed integration coverage for organization signup and persistence, refresh-token rotation and reuse detection, tenant isolation, invitation single-use behavior, membership suspension, and role-based authorization.
+
+The GitHub Actions Platform CI job starts an ephemeral MongoDB 7 service and runs the full test suite against an isolated `aegisflow_test` database. For local integration runs, start the repository MongoDB service and provide test-only environment variables:
+
+```bash
+npm run infra:up
+NODE_ENV=test MONGODB_URI=mongodb://127.0.0.1:27017/aegisflow_test JWT_ACCESS_SECRET=local-only-test-secret-not-for-production-0123456789abcdef LOG_LEVEL=silent npm test
+```
+
+The MongoDB integration suite is skipped when `MONGODB_URI` or a 32-character `JWT_ACCESS_SECRET` is absent; the existing database-independent unit tests continue to run. Use only disposable test databases: the suite clears its test collections before each scenario.
