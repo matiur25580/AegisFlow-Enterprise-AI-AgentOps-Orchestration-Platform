@@ -146,8 +146,8 @@ authRouter.post("/logout", authenticate, asyncHandler(async (_req, res) => {
 }));
 
 
-const workspaceSwitchSchema = z.object({ tenantId: z.string().regex(/^[a-f\\d]{24}$/i) }).strict();
-const sessionIdSchema = z.string().regex(/^[a-f\\d]{24}$/i);
+const workspaceSwitchSchema = z.object({ tenantId: z.string().regex(/^[a-f0-9]{24}$/i) }).strict();
+const sessionIdSchema = z.string().regex(/^[a-f0-9]{24}$/i);
 
 authRouter.post("/switch-workspace", authenticate, asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
@@ -215,6 +215,20 @@ authRouter.post("/sessions/revoke-others", authenticate, asyncHandler(async (_re
   );
   await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "identity.sessions.revoked_others", resourceType: "session", metadata: { revokedCount: result.modifiedCount }, requestId: res.locals.requestId });
   res.json({ data: { revokedCount: result.modifiedCount } });
+}));
+
+
+authRouter.get("/workspaces", authenticate, asyncHandler(async (_req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const memberships = await Membership.find({ userId: auth.userId, status: "active" }).sort({ createdAt: 1 }).lean();
+  const tenantIds = memberships.map(membership => membership.tenantId);
+  const tenants = await Tenant.find({ _id: { $in: tenantIds }, status: "active" }).select("name slug plan").lean();
+  const tenantById = new Map(tenants.map(item => [String(item._id), item]));
+  const data = memberships.flatMap(membership => {
+    const workspace = tenantById.get(String(membership.tenantId));
+    return workspace ? [{ id: String(membership._id), role: membership.role, tenant: { id: String(workspace._id), name: workspace.name, slug: workspace.slug, plan: workspace.plan } }] : [];
+  });
+  res.json({ data });
 }));
 
 authRouter.get("/me", authenticate, asyncHandler(async (_req, res) => {

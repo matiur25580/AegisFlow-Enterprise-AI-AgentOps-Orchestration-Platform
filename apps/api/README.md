@@ -12,6 +12,7 @@ All API routes are mounted below `/api/v1`.
 | POST | `/auth/logout` | Revoke the current session |
 | POST | `/auth/accept-invitation` | Accept a one-time invitation and establish an account session |
 | POST | `/auth/switch-workspace` | Switch to another active tenant membership |
+| GET | `/auth/workspaces` | List the authenticated user active workspace memberships |
 | GET | `/auth/sessions` | List current-user sessions in this workspace |
 | DELETE | `/auth/sessions/:sessionId` | Revoke a selected workspace session |
 | POST | `/auth/sessions/revoke-others` | Revoke other sessions in this workspace |

@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import AuthScreen from "./auth/AuthScreen";
+import IdentityCenter from "./auth/IdentityCenter";
+import { useAuth } from "./auth/AuthContext";
 import WorkflowStudio from "./components/WorkflowStudio";
 import ApprovalsInbox from "./components/ApprovalsInbox";
 import RunsTraces from "./components/RunsTraces";
@@ -37,9 +40,16 @@ const activity = [
 ];
 
 function App() {
+  const { user, tenant, role, loading, workspaces, loadWorkspaces, switchWorkspace, signOut } = useAuth();
   const [active, setActive] = useState("Overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [period, setPeriod] = useState("24 hours");
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+
+  useEffect(() => { if (user) void loadWorkspaces(); }, [user, loadWorkspaces]);
+
+  if (loading) return <main className="identity-loading"><div className="brand-mark"><Command size={19}/></div><p>Restoring your secure session…</p></main>;
+  if (!user) return <AuthScreen />;
 
   return (
     <div className="app-shell">
@@ -48,11 +58,12 @@ function App() {
           <span className="brand-mark"><Command size={19} /></span>
           <span><strong>AegisFlow</strong><small>AGENT OPERATIONS</small></span>
         </a>
-        <button className="workspace-switch" type="button">
-          <span className="workspace-avatar">N</span>
-          <span className="workspace-copy"><strong>Northstar Labs</strong><small>Enterprise workspace</small></span>
+        <button className="workspace-switch" type="button" aria-expanded={workspaceMenuOpen} onClick={() => setWorkspaceMenuOpen(value => !value)}>
+          <span className="workspace-avatar">{tenant?.name?.slice(0, 1).toUpperCase() ?? "W"}</span>
+          <span className="workspace-copy"><strong>{tenant?.name ?? "Workspace"}</strong><small>{role ?? "Member"} workspace</small></span>
           <ChevronDown size={15} />
         </button>
+        {workspaceMenuOpen && <div className="workspace-menu">{workspaces.map(workspace => <button key={workspace.id} className={workspace.tenant.id === tenant?.id ? "current" : ""} onClick={async () => { if (workspace.tenant.id !== tenant?.id) await switchWorkspace(workspace.tenant.id); setWorkspaceMenuOpen(false); }}><span>{workspace.tenant.name}</span><small>{workspace.role}</small></button>)}{workspaces.length === 0 && <p>No other workspaces</p>}</div>}
         {["Workspace", "Operate", "Govern"].map(section => (
           <div className="nav-section" key={section}>
             <p className="nav-heading">{section}</p>
@@ -66,27 +77,28 @@ function App() {
           </div>
         ))}
         <div className="sidebar-bottom">
-          <button className="nav-link"><Settings2 size={17} /><span>Settings</span></button>
+          <button className="nav-link" onClick={() => setActive("Access & policies")}><Settings2 size={17} /><span>Identity settings</span></button>
+          <button className="nav-link" onClick={() => void signOut()}><LockKeyhole size={17} /><span>Sign out</span></button>
           <button className="help-card"><span className="help-icon"><CircleHelp size={17} /></span><span><strong>Need a hand?</strong><small>Visit the knowledge center</small></span><ArrowUpRight size={14} /></button>
-          <div className="profile-row"><div className="profile-avatar">MR</div><span><strong>Matiur Rahaman</strong><small>Platform administrator</small></span><MoreHorizontal size={18} /></div>
+          <div className="profile-row"><div className="profile-avatar">{user.displayName.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase()}</div><span><strong>{user.displayName}</strong><small>{role} · {user.email}</small></span><MoreHorizontal size={18} /></div>
         </div>
       </aside>
 
       <main className="main-area">
         <header className="topbar">
           <button className="mobile-menu icon-button" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle navigation"><Menu size={19} /></button>
-          <div className="breadcrumbs"><span>Northstar Labs</span><span className="crumb-slash">/</span><strong>{active}</strong></div>
+          <div className="breadcrumbs"><span>{tenant?.name ?? "Workspace"}</span><span className="crumb-slash">/</span><strong>{active}</strong></div>
           <div className="top-actions">
             <button className="search-trigger"><Search size={16} /><span>Search anything</span><kbd>⌘ K</kbd></button>
             <button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /><i /></button>
-            <div className="top-avatar">MR</div>
+            <button className="top-avatar profile-trigger" title={user.email} onClick={() => void signOut()}>{user.displayName.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase()}</button>
           </div>
         </header>
 
         <div className="content">
-          {active === "Approvals" ? <ApprovalsInbox /> : active === "Runs & traces" ? <RunsTraces /> : active === "Evaluations" ? <Evaluations /> : active === "Workflow studio" ? <WorkflowStudio /> : active === "Usage & billing" ? <CostIntelligence /> : active === "Budgets" ? <BudgetManagement /> : active === "Budget alerts" ? <BudgetAlerts /> : <>
+          {active === "Access & policies" ? <IdentityCenter /> : active === "Approvals" ? <ApprovalsInbox /> : active === "Runs & traces" ? <RunsTraces /> : active === "Evaluations" ? <Evaluations /> : active === "Workflow studio" ? <WorkflowStudio /> : active === "Usage & billing" ? <CostIntelligence /> : active === "Budgets" ? <BudgetManagement /> : active === "Budget alerts" ? <BudgetAlerts /> : <>
           <div className="page-heading">
-            <div><div className="eyebrow"><span className="live-dot" /> SYSTEM OPERATIONAL</div><h1>{active === "Overview" ? "Good morning, Matiur" : active}</h1><p>Here's what's happening across your AI operations today.</p></div>
+            <div><div className="eyebrow"><span className="live-dot" /> SYSTEM OPERATIONAL</div><h1>{active === "Overview" ? `Good morning, ${user.displayName.split(" ")[0]}` : active}</h1><p>Here's what's happening across your AI operations today.</p></div>
             <div className="heading-actions"><button className="button-secondary"><GitBranch size={15} /> Production <ChevronDown size={14} /></button><button className="button-primary"><Plus size={16} /> Create agent</button></div>
           </div>
 

@@ -17,7 +17,7 @@ import { auditQuerySchema, buildAuditFilter } from "../audit/audit-query.js";
 export const workspaceRouter = Router();
 workspaceRouter.use(authenticate);
 
-const objectIdSchema = z.string().regex(/^[a-f\\d]{24}$/i, "A valid id is required.");
+const objectIdSchema = z.string().regex(/^[a-f0-9]{24}$/i, "A valid id is required.");
 const invitationSchema = z.object({
   email: z.string().trim().email().max(254).transform(value => value.toLowerCase()),
   role: z.enum(["admin", "operator", "viewer"])
