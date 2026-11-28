@@ -144,6 +144,78 @@ authRouter.post("/logout", authenticate, asyncHandler(async (_req, res) => {
   res.status(204).end();
 }));
 
+
+const workspaceSwitchSchema = z.object({ tenantId: z.string().regex(/^[a-f\\d]{24}$/i) }).strict();
+const sessionIdSchema = z.string().regex(/^[a-f\\d]{24}$/i);
+
+authRouter.post("/switch-workspace", authenticate, asyncHandler(async (req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const input = workspaceSwitchSchema.parse(req.body);
+  const [membership, tenant] = await Promise.all([
+    Membership.findOne({ userId: auth.userId, tenantId: input.tenantId, status: "active" }),
+    Tenant.findOne({ _id: input.tenantId, status: "active" })
+  ]);
+  if (!membership || !tenant) {
+    res.status(403).json({ error: { code: "WORKSPACE_ACCESS_DENIED", message: "You do not have an active membership in this workspace." }, requestId: res.locals.requestId });
+    return;
+  }
+  const { refreshToken, session: replacement } = await createSession(auth.userId, input.tenantId, req);
+  const revoked = await RefreshSession.findOneAndUpdate(
+    { _id: auth.sessionId, userId: auth.userId, tenantId: auth.tenantId, revokedAt: null, expiresAt: { $gt: new Date() } },
+    { $set: { revokedAt: new Date(), replacedByHash: hashToken(refreshToken) } },
+    { new: true }
+  );
+  if (!revoked) {
+    await RefreshSession.deleteOne({ _id: replacement._id, userId: auth.userId });
+    res.status(401).json({ error: { code: "SESSION_INVALID", message: "Your current session is no longer valid." }, requestId: res.locals.requestId });
+    return;
+  }
+  const accessToken = issueAccessToken({ sub: auth.userId, tenantId: input.tenantId, membershipId: String(membership._id), sid: String(replacement._id) });
+  await writeAuditEvent({
+    tenantId: input.tenantId, actorUserId: auth.userId, action: "identity.workspace.switched",
+    resourceType: "tenant", resourceId: input.tenantId,
+    metadata: { previousTenantId: auth.tenantId }, requestId: res.locals.requestId, ipAddress: req.ip
+  });
+  setRefreshCookie(res, refreshToken);
+  res.json({ data: { accessToken, tokenType: "Bearer", expiresIn: env.JWT_ACCESS_TTL, tenant: { id: String(tenant._id), name: tenant.name, slug: tenant.slug }, role: membership.role } });
+}));
+
+authRouter.get("/sessions", authenticate, asyncHandler(async (_req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const sessions = await RefreshSession.find({ userId: auth.userId, tenantId: auth.tenantId })
+    .sort({ createdAt: -1 }).limit(50)
+    .select("createdAt expiresAt revokedAt userAgent")
+    .lean();
+  res.json({ data: sessions.map(session => ({ id: String(session._id), createdAt: session.createdAt, expiresAt: session.expiresAt, revokedAt: session.revokedAt, current: String(session._id) === auth.sessionId, userAgent: session.userAgent ?? null })) });
+}));
+
+authRouter.delete("/sessions/:sessionId", authenticate, asyncHandler(async (req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const sessionId = sessionIdSchema.parse(req.params.sessionId);
+  const session = await RefreshSession.findOneAndUpdate(
+    { _id: sessionId, userId: auth.userId, tenantId: auth.tenantId, revokedAt: null },
+    { $set: { revokedAt: new Date() } },
+    { new: true }
+  ).select("_id");
+  if (!session) {
+    res.status(404).json({ error: { code: "SESSION_NOT_FOUND", message: "Active session not found." }, requestId: res.locals.requestId });
+    return;
+  }
+  await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "identity.session.revoked", resourceType: "session", resourceId: sessionId, requestId: res.locals.requestId, ipAddress: req.ip });
+  if (sessionId === auth.sessionId) clearRefreshCookie(res);
+  res.status(204).end();
+}));
+
+authRouter.post("/sessions/revoke-others", authenticate, asyncHandler(async (_req, res) => {
+  const auth = res.locals.auth as AuthContext;
+  const result = await RefreshSession.updateMany(
+    { userId: auth.userId, tenantId: auth.tenantId, _id: { $ne: auth.sessionId }, revokedAt: null },
+    { $set: { revokedAt: new Date() } }
+  );
+  await writeAuditEvent({ tenantId: auth.tenantId, actorUserId: auth.userId, action: "identity.sessions.revoked_others", resourceType: "session", metadata: { revokedCount: result.modifiedCount }, requestId: res.locals.requestId });
+  res.json({ data: { revokedCount: result.modifiedCount } });
+}));
+
 authRouter.get("/me", authenticate, asyncHandler(async (_req, res) => {
   const auth = res.locals.auth as AuthContext;
   const tenant = await Tenant.findById(auth.tenantId).select("name slug plan").lean();
