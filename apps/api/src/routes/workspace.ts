@@ -126,7 +126,7 @@ workspaceRouter.post("/invitations", requirePermission("members:manage"), asyncH
     res.status(403).json({ error: { code: "ADMIN_INVITE_FORBIDDEN", message: "Only the workspace owner can invite an administrator." } });
     return;
   }
-  const user = await User.findOne({ email: input.email }).select("_id").lean();
+  const user = await User.findOne({ email: { $eq: String(input.email) } }).select("_id").lean();
   if (user) {
     const existingMembership = await Membership.findOne({ tenantId: auth.tenantId, userId: user._id }).select("_id").lean();
     if (existingMembership) {
@@ -135,7 +135,7 @@ workspaceRouter.post("/invitations", requirePermission("members:manage"), asyncH
     }
   }
   const now = new Date();
-  const pending = await Invitation.findOne({ tenantId: auth.tenantId, email: input.email, acceptedAt: null, revokedAt: null, expiresAt: { $gt: now } }).select("_id").lean();
+  const pending = await Invitation.findOne({ tenantId: auth.tenantId, email: { $eq: String(input.email) }, acceptedAt: null, revokedAt: null, expiresAt: { $gt: now } }).select("_id").lean();
   if (pending) {
     res.status(409).json({ error: { code: "INVITATION_ALREADY_PENDING", message: "An unexpired invitation already exists for this email address." } });
     return;
