@@ -33,15 +33,27 @@ React 18 · TypeScript · Vite · Node.js · Express 4 · MongoDB · Mongoose ·
 
 ## 5. Local development
 
-Prerequisites: Node.js 20.11+ (Node 22 recommended), npm 10+, Docker and MongoDB.
+Prerequisites: Node.js 20.11+ (Node 22 recommended), npm 10+, and Docker with the Compose plugin.
 
-```bash
-npm ci
-# Configure root and app environment files using .env.example templates.
-npm run dev
-```
+1. Install dependencies from the repository root:
+   ```bash
+   npm ci
+   ```
+2. Start the local MongoDB service:
+   ```bash
+   npm run infra:up
+   ```
+3. Copy the root `.env.example` to `.env` and replace the development JWT secret with a unique random value of at least 32 characters.
+4. Start the API and web development servers:
+   ```bash
+   npm run dev
+   ```
 
-Web commonly runs at `http://localhost:5173`; API commonly runs at `http://localhost:4000`.
+The web app defaults to `http://localhost:5173`; the API defaults to `http://localhost:4000`. MongoDB is exposed only on the local loopback interface at `127.0.0.1:27017`.
+
+Stop the local database container with `npm run infra:down`. This preserves the named database volume. To intentionally remove local database data as well, use `docker compose down --volumes`.
+
+The Compose MongoDB service is for local development only: it has no database authentication configured and must not be exposed to an untrusted network or used as a production deployment.
 
 Quality checks:
 
@@ -137,7 +149,6 @@ Workflow promotion governance concept for environment-specific releases, evaluat
 
 ![AegisFlow Workflow promotion governance](docs/assets/dashboard/12-workflow-promotion-governance.svg)
 
-
 ## 8. Engineering delivery
 
 GitHub Actions includes platform CI, CodeQL, secret scanning and dependency auditing. Review the latest successful workflow runs for the exact release candidate before making security or readiness claims; dependency findings can change as advisories are published. Remaining priorities include ongoing advisory monitoring, cross-tenant authorization integration tests, browser E2E/accessibility coverage, immutable action pinning, execution observability and backup/restore validation.
@@ -169,7 +180,6 @@ AegisFlow is an actively developed AgentOps portfolio project. Illustrative dash
 - [Contributing guide](CONTRIBUTING.md) — engineering standards and pull request expectations.
 
 These documents describe intended safeguards and contribution practices; they do not imply that planned product controls are already implemented or independently verified.
-
 
 ## 12. Industry alignment and next capability increments
 
