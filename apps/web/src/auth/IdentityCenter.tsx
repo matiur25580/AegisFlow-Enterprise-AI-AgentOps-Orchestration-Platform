@@ -20,20 +20,26 @@ export default function IdentityCenter() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const canManage = role === "owner" || role === "admin";
+  const canReadMembers = role === "owner" || role === "admin" || role === "viewer";
 
   const load = useCallback(async () => {
     setError("");
     try {
-      const [memberResult, invitationResult, sessionResult] = await Promise.all([
-        api<Member[]>("/workspace/members"),
-        api<Invitation[]>("/workspace/invitations"),
-        api<Session[]>("/auth/sessions")
-      ]);
-      setMembers(memberResult);
-      setInvitations(invitationResult);
+      const sessionResult = await api<Session[]>("/auth/sessions");
       setSessions(sessionResult);
+      if (canReadMembers) {
+        const [memberResult, invitationResult] = await Promise.all([
+          api<Member[]>("/workspace/members"),
+          api<Invitation[]>("/workspace/invitations")
+        ]);
+        setMembers(memberResult);
+        setInvitations(invitationResult);
+      } else {
+        setMembers([]);
+        setInvitations([]);
+      }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load identity data."); }
-  }, [api]);
+  }, [api, canReadMembers]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -106,7 +112,8 @@ export default function IdentityCenter() {
         <button className={tab === "invitations" ? "selected" : ""} onClick={() => setTab("invitations")}><MailPlus size={14}/> Invitations</button>
         <button className={tab === "sessions" ? "selected" : ""} onClick={() => setTab("sessions")}><KeyRound size={14}/> Sessions</button>
       </div>
-      {tab === "members" && <>
+      {role === "operator" && tab !== "sessions" ? <div className="identity-empty">Your current role does not include permission to view workspace membership or invitations. You can still manage your own active sessions.</div> : null}
+      {tab === "members" && role !== "operator" && <>
         <div className="identity-table-head"><span>MEMBER</span><span>ROLE</span><span>STATUS</span><span>ACTIONS</span></div>
         {members.map(member => {
           const isSelf = member.userId?._id === user?.id;
@@ -120,7 +127,7 @@ export default function IdentityCenter() {
         })}
         {members.length === 0 && <div className="identity-empty">No workspace members were returned.</div>}
       </>}
-      {tab === "invitations" && <>
+      {tab === "invitations" && role !== "operator" && <>
         {canManage && <form className="identity-invite-form" onSubmit={createInvitation}>
           <label>Invite a teammate<input type="email" required maxLength={254} value={email} onChange={e => setEmail(e.target.value)} placeholder="teammate@company.com"/></label>
           <label>Workspace role<select value={inviteRole} onChange={e => setInviteRole(e.target.value as typeof inviteRole)}><option value="operator">Operator</option><option value="viewer">Viewer</option>{role === "owner" && <option value="admin">Admin</option>}</select></label>
