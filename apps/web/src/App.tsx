@@ -40,9 +40,22 @@ const activity = [
 ];
 
 function App() {
+  const { user, tenant, role, loading, workspaces, loadWorkspaces, switchWorkspace, signOut } = useAuth();
   const [active, setActive] = useState("Overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [period, setPeriod] = useState("24 hours");\n  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);\n\n  useEffect(() => { if (user) void loadWorkspaces(); }, [user, loadWorkspaces]);\n\n  if (loading) return <main className="identity-loading"><div className="brand-mark"><Command size={19}/></div><p>Restoring your secure session…</p></main>;\n  if (!user) return <AuthScreen />;
+  const [period, setPeriod] = useState("24 hours");
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+
+  useEffect(() => { if (user) void loadWorkspaces(); }, [user, loadWorkspaces]);
+
+  if (loading) return <main className="identity-loading"><div className="brand-mark"><Command size={19}/></div><p>Restoring your secure session…</p></main>;
+  if (!user) return <AuthScreen />;
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+
+  useEffect(() => { if (user) void loadWorkspaces(); }, [user, loadWorkspaces]);
+
+  if (loading) return <main className="identity-loading"><div className="brand-mark"><Command size={19}/></div><p>Restoring your secure session…</p></main>;
+  if (!user) return <AuthScreen />;
 
   return (
     <div className="app-shell">
@@ -51,11 +64,12 @@ function App() {
           <span className="brand-mark"><Command size={19} /></span>
           <span><strong>AegisFlow</strong><small>AGENT OPERATIONS</small></span>
         </a>
-        <button className="workspace-switch" type="button">
-          <span className="workspace-avatar">N</span>
-          <span className="workspace-copy"><strong>Northstar Labs</strong><small>Enterprise workspace</small></span>
+        <button className="workspace-switch" type="button" aria-expanded={workspaceMenuOpen} onClick={() => setWorkspaceMenuOpen(value => !value)}>
+          <span className="workspace-avatar">{tenant?.name?.slice(0, 1).toUpperCase() ?? "W"}</span>
+          <span className="workspace-copy"><strong>{tenant?.name ?? "Workspace"}</strong><small>{role ?? "Member"} workspace</small></span>
           <ChevronDown size={15} />
         </button>
+        {workspaceMenuOpen && <div className="workspace-menu">{workspaces.map(workspace => <button key={workspace.id} className={workspace.tenant.id === tenant?.id ? "current" : ""} onClick={async () => { if (workspace.tenant.id !== tenant?.id) await switchWorkspace(workspace.tenant.id); setWorkspaceMenuOpen(false); }}><span>{workspace.tenant.name}</span><small>{workspace.role}</small></button>)}{workspaces.length === 0 && <p>No other workspaces</p>}</div>}
         {["Workspace", "Operate", "Govern"].map(section => (
           <div className="nav-section" key={section}>
             <p className="nav-heading">{section}</p>
@@ -69,9 +83,10 @@ function App() {
           </div>
         ))}
         <div className="sidebar-bottom">
-          <button className="nav-link" onClick={() => setActive("Access & policies")}><Settings2 size={17} /><span>Identity settings</span></button>\n          <button className="nav-link" onClick={() => void signOut()}><LockKeyhole size={17} /><span>Sign out</span></button>
+          <button className="nav-link" onClick={() => setActive("Access & policies")}><Settings2 size={17} /><span>Identity settings</span></button>
+          <button className="nav-link" onClick={() => void signOut()}><LockKeyhole size={17} /><span>Sign out</span></button>
           <button className="help-card"><span className="help-icon"><CircleHelp size={17} /></span><span><strong>Need a hand?</strong><small>Visit the knowledge center</small></span><ArrowUpRight size={14} /></button>
-          <div className="profile-row"><div className="profile-avatar">MR</div><span><strong>Matiur Rahaman</strong><small>Platform administrator</small></span><MoreHorizontal size={18} /></div>
+          <div className="profile-row"><div className="profile-avatar">{user.displayName.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase()}</div><span><strong>{user.displayName}</strong><small>{role} · {user.email}</small></span><MoreHorizontal size={18} /></div>
         </div>
       </aside>
 
