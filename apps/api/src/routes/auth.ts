@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import type { Types } from "mongoose";
+import { Types } from "mongoose";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { env } from "../config/env.js";
@@ -153,8 +153,8 @@ authRouter.post("/switch-workspace", authenticate, asyncHandler(async (req, res)
   const auth = res.locals.auth as AuthContext;
   const input = workspaceSwitchSchema.parse(req.body);
   const [membership, tenant] = await Promise.all([
-    Membership.findOne({ userId: auth.userId, tenantId: input.tenantId, status: "active" }),
-    Tenant.findOne({ _id: input.tenantId, status: "active" })
+    Membership.findOne({ userId: auth.userId, tenantId: new Types.ObjectId(input.tenantId), status: "active" }),
+    Tenant.findOne({ _id: new Types.ObjectId(input.tenantId), status: "active" })
   ]);
   if (!membership || !tenant) {
     res.status(403).json({ error: { code: "WORKSPACE_ACCESS_DENIED", message: "You do not have an active membership in this workspace." }, requestId: res.locals.requestId });
