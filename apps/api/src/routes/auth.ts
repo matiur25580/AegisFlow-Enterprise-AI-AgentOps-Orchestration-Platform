@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import type { Types } from "mongoose";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { env } from "../config/env.js";
@@ -223,7 +224,7 @@ authRouter.get("/me", authenticate, asyncHandler(async (_req, res) => {
 }));
 
 
-const acceptInvitationSchema = z.object({
+type AcceptedMembership = { _id: Types.ObjectId; role: "owner" | "admin" | "operator" | "viewer" };\n\nconst acceptInvitationSchema = z.object({
   token: z.string().min(32).max(128),
   displayName: z.string().trim().min(2).max(80),
   password: z.string().min(12).max(128)
@@ -245,7 +246,7 @@ authRouter.post("/accept-invitation", asyncHandler(async (req, res) => {
 
   let user = await User.findOne({ email: invitation.email }).select("+passwordHash");
   let createdUser = false;
-  let membership: Awaited<ReturnType<typeof Membership.create>> | undefined;
+  let membership: AcceptedMembership | undefined;
   let claimed = false;
   let refreshSessionId: string | undefined;
   try {
