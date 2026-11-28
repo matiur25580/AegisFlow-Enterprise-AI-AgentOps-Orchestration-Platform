@@ -33,3 +33,20 @@ test("budget policies are visible to operators and viewers but managed by owner/
   assert.equal(hasPermission("operator", "budgets:read"), true);
   assert.equal(hasPermission("viewer", "budgets:read"), true);
 });
+
+test("workspace member management is restricted to owner and admin roles", () => {
+  for (const role of ["owner", "admin"] as const) {
+    assert.equal(hasPermission(role, "members:read"), true);
+    assert.equal(hasPermission(role, "members:manage"), true);
+  }
+  assert.equal(hasPermission("operator", "members:read"), false);
+  assert.equal(hasPermission("operator", "members:manage"), false);
+  assert.equal(hasPermission("viewer", "members:read"), true);
+  assert.equal(hasPermission("viewer", "members:manage"), false);
+});
+
+test("administrators cannot inherit billing read and non-admin roles cannot manage membership", () => {
+  assert.equal(hasPermission("admin", "billing:read"), false);
+  assert.equal(hasPermission("operator", "members:manage"), false);
+  assert.equal(hasPermission("viewer", "members:manage"), false);
+});
