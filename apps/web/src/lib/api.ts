@@ -29,6 +29,12 @@ export async function apiRequest<T>(
   return payload.data as T;
 }
 
+let refreshPromise: Promise<{ accessToken: string }> | null = null;
+
 export function refreshAccessToken(): Promise<{ accessToken: string }> {
-  return apiRequest<{ accessToken: string }>("/auth/refresh", { method: "POST" });
+  if (!refreshPromise) {
+    refreshPromise = apiRequest<{ accessToken: string }>("/auth/refresh", { method: "POST" })
+      .finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
 }
