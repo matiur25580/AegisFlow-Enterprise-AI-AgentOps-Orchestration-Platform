@@ -224,7 +224,9 @@ authRouter.get("/me", authenticate, asyncHandler(async (_req, res) => {
 }));
 
 
-type AcceptedMembership = { _id: Types.ObjectId; role: "owner" | "admin" | "operator" | "viewer" };\n\nconst acceptInvitationSchema = z.object({
+type AcceptedMembership = { _id: Types.ObjectId; role: "owner" | "admin" | "operator" | "viewer" };
+
+const acceptInvitationSchema = z.object({
   token: z.string().min(32).max(128),
   displayName: z.string().trim().min(2).max(80),
   password: z.string().min(12).max(128)
