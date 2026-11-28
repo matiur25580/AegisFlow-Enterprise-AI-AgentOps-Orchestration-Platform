@@ -25,13 +25,13 @@ export default function IdentityCenter() {
     setError("");
     try {
       const [memberResult, invitationResult, sessionResult] = await Promise.all([
-        api<{ data: Member[] }>("/workspace/members"),
-        api<{ data: Invitation[] }>("/workspace/invitations"),
-        api<{ data: Session[] }>("/auth/sessions")
+        api<Member[]>("/workspace/members"),
+        api<Invitation[]>("/workspace/invitations"),
+        api<Session[]>("/auth/sessions")
       ]);
-      setMembers(memberResult.data);
-      setInvitations(invitationResult.data);
-      setSessions(sessionResult.data);
+      setMembers(memberResult);
+      setInvitations(invitationResult);
+      setSessions(sessionResult);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load identity data."); }
   }, [api]);
 
