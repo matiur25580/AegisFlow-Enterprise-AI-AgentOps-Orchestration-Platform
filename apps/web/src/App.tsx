@@ -50,12 +50,6 @@ function App() {
 
   if (loading) return <main className="identity-loading"><div className="brand-mark"><Command size={19}/></div><p>Restoring your secure session…</p></main>;
   if (!user) return <AuthScreen />;
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
-
-  useEffect(() => { if (user) void loadWorkspaces(); }, [user, loadWorkspaces]);
-
-  if (loading) return <main className="identity-loading"><div className="brand-mark"><Command size={19}/></div><p>Restoring your secure session…</p></main>;
-  if (!user) return <AuthScreen />;
 
   return (
     <div className="app-shell">
