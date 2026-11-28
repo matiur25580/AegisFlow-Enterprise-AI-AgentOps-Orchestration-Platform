@@ -146,8 +146,8 @@ authRouter.post("/logout", authenticate, asyncHandler(async (_req, res) => {
 }));
 
 
-const workspaceSwitchSchema = z.object({ tenantId: z.string().regex(/^[a-f\\d]{24}$/i) }).strict();
-const sessionIdSchema = z.string().regex(/^[a-f\\d]{24}$/i);
+const workspaceSwitchSchema = z.object({ tenantId: z.string().regex(/^[a-f0-9]{24}$/i) }).strict();
+const sessionIdSchema = z.string().regex(/^[a-f0-9]{24}$/i);
 
 authRouter.post("/switch-workspace", authenticate, asyncHandler(async (req, res) => {
   const auth = res.locals.auth as AuthContext;
