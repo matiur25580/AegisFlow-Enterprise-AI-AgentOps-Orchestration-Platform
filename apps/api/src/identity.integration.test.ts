@@ -29,7 +29,7 @@ type RequestOptions = {
   body?: unknown;
 };
 
-let server: Server;
+let server: Server | undefined;
 let baseUrl = "";
 
 function refreshCookie(response: Response): string {

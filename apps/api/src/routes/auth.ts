@@ -46,6 +46,12 @@ async function createSession(userId: string, tenantId: string, req: Request) {
 
 async function revokeSessionsAfterRefreshReuse(session: { _id: Types.ObjectId; userId: Types.ObjectId; tenantId: Types.ObjectId }, requestId?: string, ipAddress?: string): Promise<void> {
   const revokedAt = new Date();
+  const claimed = await RefreshSession.findOneAndUpdate(
+    { _id: session._id, reuseDetectedAt: null },
+    { $set: { reuseDetectedAt: revokedAt } },
+    { new: true }
+  );
+  if (!claimed) return;
   await RefreshSession.updateMany(
     { userId: session.userId, tenantId: session.tenantId, revokedAt: null },
     { $set: { revokedAt } }
@@ -178,6 +184,13 @@ authRouter.post("/refresh", asyncHandler(async (req, res) => {
     userId: user._id, tenantId: tenant._id, tokenHash: replacementHash, expiresAt,
     userAgent: req.get("user-agent")?.slice(0, 500), ipAddress: req.ip?.slice(0, 64)
   });
+  const reuseDetected = await RefreshSession.exists({ _id: existing._id, reuseDetectedAt: { $ne: null } });
+  if (reuseDetected) {
+    await RefreshSession.updateOne({ _id: replacement._id, revokedAt: null }, { $set: { revokedAt: new Date() } });
+    clearRefreshCookie(res);
+    res.status(401).json({ error: { code: "REFRESH_INVALID", message: "The refresh session is invalid or expired." }, requestId: res.locals.requestId });
+    return;
+  }
   const accessToken = issueAccessToken({ sub: String(user._id), tenantId: String(tenant._id), membershipId: String(membership._id), sid: String(replacement._id) });
   setRefreshCookie(res, refreshToken);
   res.json({ data: { accessToken, tokenType: "Bearer", expiresIn: env.JWT_ACCESS_TTL } });
