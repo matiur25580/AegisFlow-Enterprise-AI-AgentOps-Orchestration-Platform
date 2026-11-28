@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowRightLeft, Check, Copy, KeyRound, MailPlus, RefreshCw, Shield, ShieldCheck, UserRound, Users, XCircle } from "lucide-react";
+import { Check, Copy, KeyRound, MailPlus, RefreshCw, Shield, ShieldCheck, UserRound, Users, XCircle } from "lucide-react";
 import { useAuth } from "./AuthContext";
 
 type Member = { _id: string; role: "owner" | "admin" | "operator" | "viewer"; status: "active" | "suspended"; userId: { _id: string; email: string; displayName: string; status: string } | null };
