@@ -100,9 +100,10 @@ describe("MongoDB-backed identity integration", { skip: !integrationEnabled }, (
   });
 
   after(async () => {
-    if (server) {
+    const activeServer = server;
+    if (activeServer) {
       await new Promise<void>((resolve, reject) => {
-        server.close(error => error ? reject(error) : resolve());
+        activeServer.close(error => error ? reject(error) : resolve());
       });
     }
     if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
