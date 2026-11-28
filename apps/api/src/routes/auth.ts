@@ -44,6 +44,30 @@ async function createSession(userId: string, tenantId: string, req: Request) {
   return { refreshToken, session };
 }
 
+async function revokeSessionsAfterRefreshReuse(session: { _id: Types.ObjectId; userId: Types.ObjectId; tenantId: Types.ObjectId }, requestId?: string, ipAddress?: string): Promise<void> {
+  const revokedAt = new Date();
+  const claimed = await RefreshSession.findOneAndUpdate(
+    { _id: session._id, reuseDetectedAt: null },
+    { $set: { reuseDetectedAt: revokedAt } },
+    { new: true }
+  );
+  if (!claimed) return;
+  await RefreshSession.updateMany(
+    { userId: session.userId, tenantId: session.tenantId, revokedAt: null },
+    { $set: { revokedAt } }
+  );
+  await writeAuditEvent({
+    tenantId: String(session.tenantId),
+    actorUserId: String(session.userId),
+    action: "identity.refresh_token.reuse_detected",
+    resourceType: "session",
+    resourceId: String(session._id),
+    metadata: { response: "all_active_workspace_sessions_revoked" },
+    requestId,
+    ipAddress
+  });
+}
+
 authRouter.post("/signup", asyncHandler(async (req, res) => {
   const input = signupSchema.parse(req.body);
   const passwordHash = await bcrypt.hash(input.password, 12);
@@ -101,37 +125,72 @@ authRouter.post("/refresh", asyncHandler(async (req, res) => {
     res.status(401).json({ error: { code: "REFRESH_REQUIRED", message: "A refresh session is required." }, requestId: res.locals.requestId });
     return;
   }
+
   const tokenHash = hashToken(rawToken);
-  const session = await RefreshSession.findOneAndUpdate(
-    { tokenHash, revokedAt: null, expiresAt: { $gt: new Date() } },
-    { $set: { revokedAt: new Date() } },
-    { new: true }
-  );
-  if (!session) {
+  const existing = await RefreshSession.findOne({ tokenHash }).select("+replacedByHash");
+  if (!existing) {
+    clearRefreshCookie(res);
+    res.status(401).json({ error: { code: "REFRESH_INVALID", message: "The refresh session is invalid or expired." }, requestId: res.locals.requestId });
+    return;
+  }
+
+  if (existing.revokedAt) {
+    if (existing.replacedByHash) {
+      await revokeSessionsAfterRefreshReuse(existing, res.locals.requestId, req.ip);
+    }
+    clearRefreshCookie(res);
+    res.status(401).json({ error: { code: "REFRESH_INVALID", message: "The refresh session is invalid or expired." }, requestId: res.locals.requestId });
+    return;
+  }
+
+  if (existing.expiresAt <= new Date()) {
     clearRefreshCookie(res);
     res.status(401).json({ error: { code: "REFRESH_INVALID", message: "The refresh session is invalid or expired." }, requestId: res.locals.requestId });
     return;
   }
 
   const [user, membership, tenant] = await Promise.all([
-    User.findOne({ _id: session.userId, status: "active" }),
-    Membership.findOne({ userId: session.userId, tenantId: session.tenantId, status: "active" }),
-    Tenant.findOne({ _id: session.tenantId, status: "active" })
+    User.findOne({ _id: existing.userId, status: "active" }),
+    Membership.findOne({ userId: existing.userId, tenantId: existing.tenantId, status: "active" }),
+    Tenant.findOne({ _id: existing.tenantId, status: "active" })
   ]);
   if (!user || !membership || !tenant) {
+    await RefreshSession.updateOne({ _id: existing._id, revokedAt: null }, { $set: { revokedAt: new Date() } });
     clearRefreshCookie(res);
     res.status(401).json({ error: { code: "SESSION_INVALID", message: "The account or workspace is no longer active." }, requestId: res.locals.requestId });
     return;
   }
 
   const refreshToken = createRefreshToken();
+  const replacementHash = hashToken(refreshToken);
+  const consumed = await RefreshSession.findOneAndUpdate(
+    { _id: existing._id, tokenHash, revokedAt: null, expiresAt: { $gt: new Date() } },
+    { $set: { revokedAt: new Date(), replacedByHash: replacementHash } },
+    { new: true }
+  );
+
+  if (!consumed) {
+    const raced = await RefreshSession.findById(existing._id).select("+replacedByHash");
+    if (raced?.revokedAt && raced.replacedByHash) {
+      await revokeSessionsAfterRefreshReuse(raced, res.locals.requestId, req.ip);
+    }
+    clearRefreshCookie(res);
+    res.status(401).json({ error: { code: "REFRESH_INVALID", message: "The refresh session is invalid or expired." }, requestId: res.locals.requestId });
+    return;
+  }
+
   const expiresAt = new Date(Date.now() + env.JWT_REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000);
   const replacement = await RefreshSession.create({
-    userId: user._id, tenantId: tenant._id, tokenHash: hashToken(refreshToken), expiresAt,
+    userId: user._id, tenantId: tenant._id, tokenHash: replacementHash, expiresAt,
     userAgent: req.get("user-agent")?.slice(0, 500), ipAddress: req.ip?.slice(0, 64)
   });
-  session.replacedByHash = hashToken(refreshToken);
-  await session.save();
+  const reuseDetected = await RefreshSession.exists({ _id: existing._id, reuseDetectedAt: { $ne: null } });
+  if (reuseDetected) {
+    await RefreshSession.updateOne({ _id: replacement._id, revokedAt: null }, { $set: { revokedAt: new Date() } });
+    clearRefreshCookie(res);
+    res.status(401).json({ error: { code: "REFRESH_INVALID", message: "The refresh session is invalid or expired." }, requestId: res.locals.requestId });
+    return;
+  }
   const accessToken = issueAccessToken({ sub: String(user._id), tenantId: String(tenant._id), membershipId: String(membership._id), sid: String(replacement._id) });
   setRefreshCookie(res, refreshToken);
   res.json({ data: { accessToken, tokenType: "Bearer", expiresIn: env.JWT_ACCESS_TTL } });

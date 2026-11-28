@@ -7,6 +7,7 @@ const refreshSessionSchema = new Schema({
   expiresAt: { type: Date, required: true, index: { expires: 0 } },
   revokedAt: { type: Date, default: null },
   replacedByHash: { type: String, default: null, select: false },
+  reuseDetectedAt: { type: Date, default: null, select: false },
   userAgent: { type: String, maxlength: 500 },
   ipAddress: { type: String, maxlength: 64 }
 }, { timestamps: true, versionKey: false });
